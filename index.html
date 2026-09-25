@@ -1,0 +1,453 @@
+<title>Completitud Disruptia</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root{
+    --ink:#161a16; --ink-soft:#565f55; --paper:#f5f6f2; --card:#ffffff;
+    --line:#dfe3db; --accent:#0b6e4f; --accent-ink:#ffffff; --accent-soft:#e1f0e7;
+    --warn:#a65510; --warn-soft:#fbead8; --danger:#a3271f; --danger-soft:#fbe4e1;
+    --focus:#0b6e4f;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#eef1ea; --ink-soft:#a6ad9f; --paper:#12140f; --card:#191c16;
+      --line:#2a2f26; --accent:#3fdd9a; --accent-ink:#08150f; --accent-soft:#183227;
+      --warn:#f2ab68; --warn-soft:#33230f; --danger:#ff7b70; --danger-soft:#37201d;
+      --focus:#3fdd9a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#eef1ea; --ink-soft:#a6ad9f; --paper:#12140f; --card:#191c16;
+    --line:#2a2f26; --accent:#3fdd9a; --accent-ink:#08150f; --accent-soft:#183227;
+    --warn:#f2ab68; --warn-soft:#33230f; --danger:#ff7b70; --danger-soft:#37201d;
+    --focus:#3fdd9a;
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    padding-inline:16px; padding-block:0 24px;
+    max-width:720px; margin-inline:auto;
+  }
+  h1,h2,h3{font-family:'Manrope', system-ui, sans-serif; text-wrap:balance; margin:0;}
+  .mono{font-family:'IBM Plex Mono', ui-monospace, monospace;}
+
+  header.top{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:10;
+    background:var(--paper); padding-block:14px 10px; margin-inline:-16px; padding-inline:16px;
+    border-bottom:1px solid var(--line);
+  }
+  header.top .row{display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  header.top h1{font-size:1.15rem; font-weight:800; letter-spacing:-0.01em;}
+  .stat{font-size:.78rem; color:var(--ink-soft);}
+  .stat b{color:var(--ink); font-family:'IBM Plex Mono',monospace; font-weight:500;}
+
+  .whoami{margin-top:10px; display:flex; gap:8px; align-items:center;}
+  .whoami input{flex:1; min-width:0;}
+  .whoami label{font-size:.72rem; color:var(--ink-soft); white-space:nowrap;}
+
+  input[type=text], input[type=number], input[type=url], select{
+    font:inherit; font-size:.92rem; color:var(--ink); background:var(--card);
+    border:1px solid var(--line); border-radius:8px; padding:9px 10px; width:100%;
+  }
+  input:focus, select:focus{outline:2px solid var(--focus); outline-offset:1px;}
+
+  .search-wrap{margin-top:16px;}
+  .search-wrap input{font-size:1rem; padding:12px 14px;}
+
+  .results{margin-top:10px; display:flex; flex-direction:column; gap:8px;}
+  .result{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:11px 13px; display:flex; align-items:center; justify-content:space-between;
+    gap:10px; cursor:pointer; text-align:left; width:100%;
+  }
+  .result:hover{border-color:var(--accent);}
+  .result .who{display:flex; flex-direction:column; gap:2px; min-width:0;}
+  .result .who .nm{font-weight:600; font-size:.94rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .result .who .doc{font-size:.76rem; color:var(--ink-soft);}
+  .pill{
+    font-family:'IBM Plex Mono',monospace; font-size:.72rem; font-weight:500;
+    padding:3px 8px; border-radius:999px; white-space:nowrap; flex:none;
+  }
+  .pill.pend{background:var(--warn-soft); color:var(--warn);}
+  .pill.done{background:var(--accent-soft); color:var(--accent);}
+  .empty-hint{color:var(--ink-soft); font-size:.85rem; padding:20px 4px; text-align:center;}
+
+  .person-card{
+    margin-top:16px; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:16px;
+  }
+  .person-card .hd{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .person-card h2{font-size:1.15rem;}
+  .person-card .sub{font-size:.8rem; color:var(--ink-soft); margin-top:2px;}
+  .back-btn{
+    font-family:inherit; font-size:.78rem; color:var(--ink-soft); background:none;
+    border:1px solid var(--line); border-radius:7px; padding:6px 10px; cursor:pointer; flex:none;
+  }
+  .back-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .progress-bar{height:6px; border-radius:99px; background:var(--line); margin-top:12px; overflow:hidden;}
+  .progress-bar > i{display:block; height:100%; background:var(--accent);}
+
+  fieldset{border:none; padding:0; margin:22px 0 0;}
+  legend{
+    font-family:'Manrope', system-ui, sans-serif; font-weight:700; font-size:.86rem;
+    text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); padding:0 0 8px;
+    width:100%; border-bottom:1px solid var(--line); margin-bottom:12px;
+  }
+  .field{margin-bottom:12px;}
+  .field label{
+    display:flex; align-items:center; gap:7px; font-size:.82rem; font-weight:500;
+    margin-bottom:5px;
+  }
+  .field .badge{
+    font-family:'IBM Plex Mono',monospace; font-size:.65rem; padding:1px 6px; border-radius:5px;
+    background:var(--paper); color:var(--ink-soft); border:1px solid var(--line);
+  }
+  .field.saved label .badge{background:var(--accent-soft); color:var(--accent); border-color:transparent;}
+  .field .hint{font-size:.72rem; color:var(--ink-soft); margin-top:4px;}
+
+  .submit-bar{
+    position:sticky; bottom:env(safe-area-inset-bottom,0px); margin:24px -16px 0; padding:12px 16px;
+    background:var(--paper); border-top:1px solid var(--line); display:flex; gap:10px; align-items:center;
+  }
+  button.primary{
+    font:inherit; font-weight:700; font-size:.92rem; color:var(--accent-ink); background:var(--accent);
+    border:none; border-radius:9px; padding:12px 18px; cursor:pointer; flex:1;
+  }
+  button.primary:disabled{opacity:.5; cursor:default;}
+  .save-msg{font-size:.78rem; color:var(--ink-soft); min-height:1em;}
+  .save-msg.ok{color:var(--accent);}
+  .save-msg.err{color:var(--danger);}
+
+  footer.note{
+    margin-top:28px; padding-top:14px; border-top:1px solid var(--line);
+    font-size:.74rem; color:var(--ink-soft); line-height:1.5;
+  }
+  [hidden]{display:none !important;}
+</style>
+
+<header class="top">
+  <div class="row">
+    <h1>Completitud Disruptia</h1>
+    <span class="stat" id="statLine">cargando…</span>
+  </div>
+  <div class="whoami">
+    <label for="who">Tu nombre</label>
+    <input type="text" id="who" placeholder="Quién está llenando esto" autocomplete="off">
+  </div>
+</header>
+
+<div id="searchView">
+  <div class="search-wrap">
+    <input type="text" id="q" placeholder="Buscar por nombre o número de documento…" autocomplete="off">
+  </div>
+  <div class="results" id="results"></div>
+  <p class="empty-hint" id="emptyHint">Escribe un nombre o documento para empezar.</p>
+</div>
+
+<div id="personView" hidden></div>
+
+<footer class="note">
+  Las respuestas se guardan directamente en el Google Sheet de PARTICIPANTES en cuanto le das a "Guardar respuestas" — no hay paso de sincronización aparte. Al abrir cada persona se revisa el Sheet en vivo, así que si alguien más ya llenó un campo (aquí o directo en el Sheet), no se vuelve a pedir.
+</footer>
+
+<script>
+(function(){
+  var READ_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/leer-participante';
+  var WRITE_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/guardar-dato';
+  var TOKEN = 'k0PEy6pnJlH45VVNooHKTuEBkaA7NXzNiaD7Z4c0ZQU';
+
+  var DATA = null, LIVE = {}; // LIVE: {no: {headerDelSheet: valor, ...}} — snapshot en vivo del Sheet
+  var current = null;
+
+  var els = {
+    q: document.getElementById('q'),
+    results: document.getElementById('results'),
+    emptyHint: document.getElementById('emptyHint'),
+    searchView: document.getElementById('searchView'),
+    personView: document.getElementById('personView'),
+    statLine: document.getElementById('statLine'),
+    who: document.getElementById('who')
+  };
+
+  try {
+    var savedWho = localStorage.getItem('disruptia_who');
+    if (savedWho) els.who.value = savedWho;
+  } catch(e){}
+  els.who.addEventListener('input', function(){
+    try { localStorage.setItem('disruptia_who', els.who.value); } catch(e){}
+  });
+
+  function norm(s){
+    return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+  }
+
+  function answeredCount(no){
+    // La lista/estadística usa el estado de la última exportación del Excel
+    // (data.json) para no hacer cientos de llamadas al Sheet de una vez.
+    // El chequeo en vivo contra el Sheet ocurre al abrir cada persona.
+    return 0;
+  }
+
+  function renderStat(){
+    if (!DATA) return;
+    var totalPeople = DATA.people.length;
+    var totalAsk = 0, peopleComplete = 0;
+    DATA.people.forEach(function(p){
+      totalAsk += p.missing.length;
+      if (p.missing.length === 0) peopleComplete++;
+    });
+    els.statLine.innerHTML = totalPeople + ' personas · <b>' + totalAsk + '</b> campos pendientes (según última exportación) · <b>' + peopleComplete + '</b> completas';
+  }
+
+  function loadData(){
+    return fetch('data.json').then(function(r){
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    }).then(function(d){
+      DATA = d;
+    });
+  }
+
+  function fetchLive(no){
+    return fetch(READ_URL + '?no=' + encodeURIComponent(no), {
+      headers: { 'Authorization': 'Bearer ' + TOKEN }
+    }).then(function(r){
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    }).then(function(row){
+      LIVE[no] = row || {};
+      return LIVE[no];
+    });
+  }
+
+  function doSearch(){
+    if (!DATA) return;
+    var term = norm(els.q.value);
+    els.results.innerHTML = '';
+    if (!term){
+      els.emptyHint.hidden = false;
+      return;
+    }
+    var matches = DATA.people.filter(function(p){
+      return norm(p.nombre).indexOf(term) !== -1 || (p.doc && p.doc.indexOf(term) !== -1);
+    }).slice(0, 12);
+    els.emptyHint.hidden = matches.length > 0;
+    if (matches.length === 0){
+      els.emptyHint.hidden = false;
+      els.emptyHint.textContent = 'Sin resultados para "' + els.q.value + '".';
+    }
+    matches.forEach(function(p){
+      var total = p.missing.length;
+      var done = Math.min(answeredCount(p.no), total);
+      var pending = total - done;
+      var btn = document.createElement('button');
+      btn.className = 'result';
+      btn.type = 'button';
+      var pillClass = pending === 0 ? 'done' : 'pend';
+      var pillText = pending === 0 ? 'completo' : (pending + ' pendiente' + (pending===1?'':'s'));
+      btn.innerHTML =
+        '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' +
+        '<span class="pill ' + pillClass + '">' + pillText + '</span>';
+      btn.querySelector('.nm').textContent = p.nombre;
+      btn.querySelector('.doc').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
+      btn.addEventListener('click', function(){ openPerson(p.no); });
+      els.results.appendChild(btn);
+    });
+  }
+
+  function fieldRow(letter, meta, savedVal){
+    var wrap = document.createElement('div');
+    wrap.className = 'field' + (savedVal !== undefined && savedVal !== '' && savedVal !== null ? ' saved' : '');
+    var label = document.createElement('label');
+    label.setAttribute('for', 'f_' + letter);
+    label.innerHTML = '<span>' + meta.label + '</span><span class="badge">' + letter + '</span>';
+    wrap.appendChild(label);
+
+    var input;
+    if (meta.type === 'select'){
+      input = document.createElement('select');
+      var optBlank = document.createElement('option');
+      optBlank.value = ''; optBlank.textContent = '— seleccionar —';
+      input.appendChild(optBlank);
+      (meta.options||[]).forEach(function(o){
+        var opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        input.appendChild(opt);
+      });
+    } else {
+      input = document.createElement('input');
+      input.type = meta.type === 'number' ? 'number' : (meta.type === 'link' ? 'url' : 'text');
+      if (meta.type === 'link') input.placeholder = 'Enlace de Drive al documento';
+    }
+    input.id = 'f_' + letter;
+    input.dataset.letter = letter;
+    if (savedVal !== undefined && savedVal !== null) input.value = savedVal;
+    wrap.appendChild(input);
+
+    if (meta.type === 'link'){
+      var hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = 'Pega el enlace para compartir del archivo en Drive.';
+      wrap.appendChild(hint);
+    }
+    input.addEventListener('input', function(){
+      wrap.classList.toggle('saved', input.value.trim() !== '');
+    });
+    return wrap;
+  }
+
+  function openPerson(no){
+    var p = DATA.people.find(function(x){ return x.no === no; });
+    if (!p) return;
+    current = p;
+    els.searchView.hidden = true;
+    els.personView.hidden = false;
+    els.personView.innerHTML = '<p class="empty-hint">Consultando el Sheet en vivo…</p>';
+    fetchLive(no).catch(function(){ LIVE[no] = LIVE[no] || {}; }).then(function(){
+      if (!current || current.no !== no) return; // el usuario ya se movió a otra pantalla
+      renderPerson(p);
+      els.personView.scrollIntoView({block:'start'});
+    });
+  }
+
+  function renderPerson(p){
+    var live = LIVE[p.no] || {};
+    var saved = {};
+    p.missing.forEach(function(letter){
+      var header = DATA.fields[letter].header;
+      var v = live[header];
+      if (v !== undefined && v !== null && v !== '') saved[letter] = v;
+    });
+    var total = p.missing.length;
+    var done = Object.keys(saved).length;
+    var pct = total > 0 ? Math.round(done/total*100) : 100;
+
+    var wrap = document.createElement('div');
+
+    var card = document.createElement('div');
+    card.className = 'person-card';
+    card.innerHTML =
+      '<div class="hd">' +
+        '<div><h2></h2><div class="sub mono"></div></div>' +
+        '<button type="button" class="back-btn">← Buscar otra persona</button>' +
+      '</div>' +
+      '<div class="progress-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="sub" style="margin-top:6px;">' + done + ' de ' + total + ' campos guardados (' + pct + '%)</div>';
+    card.querySelector('h2').textContent = p.nombre;
+    card.querySelector('.sub').textContent = 'Participante No. ' + p.no + ' · CC ' + (p.doc || '—');
+    card.querySelector('.back-btn').addEventListener('click', function(){
+      els.personView.hidden = true;
+      els.searchView.hidden = false;
+      els.personView.innerHTML = '';
+      current = null;
+      renderStat();
+      doSearch();
+    });
+    wrap.appendChild(card);
+
+    var form = document.createElement('form');
+    form.id = 'personForm';
+
+    var bySection = {};
+    p.missing.forEach(function(letter){
+      var meta = DATA.fields[letter];
+      var sec = meta.section || 'Otros';
+      (bySection[sec] = bySection[sec] || []).push(letter);
+    });
+
+    DATA.sectionOrder.forEach(function(sec){
+      if (!bySection[sec]) return;
+      var fs = document.createElement('fieldset');
+      var lg = document.createElement('legend');
+      lg.textContent = sec;
+      fs.appendChild(lg);
+      bySection[sec].forEach(function(letter){
+        fs.appendChild(fieldRow(letter, DATA.fields[letter], saved[letter]));
+      });
+      form.appendChild(fs);
+    });
+
+    var bar = document.createElement('div');
+    bar.className = 'submit-bar';
+    bar.innerHTML = '<button type="submit" class="primary">Guardar respuestas</button><span class="save-msg" id="saveMsg"></span>';
+    form.appendChild(bar);
+
+    form.addEventListener('submit', function(ev){
+      ev.preventDefault();
+      submitForm(p);
+    });
+
+    wrap.appendChild(form);
+    els.personView.innerHTML = '';
+    els.personView.appendChild(wrap);
+  }
+
+  function submitForm(p){
+    var msg = document.getElementById('saveMsg');
+    var btn = document.querySelector('#personForm button.primary');
+    var inputs = document.querySelectorAll('#personForm [data-letter]');
+    var datosPorHeader = {};
+    var any = false;
+    inputs.forEach(function(inp){
+      var v = inp.value;
+      if (typeof v === 'string') v = v.trim();
+      if (v !== '' && v !== null && v !== undefined){
+        var letter = inp.dataset.letter;
+        var header = DATA.fields[letter].header;
+        datosPorHeader[header] = v;
+        any = true;
+      }
+    });
+    if (!any){
+      msg.textContent = 'No hay respuestas para guardar.';
+      msg.className = 'save-msg err';
+      return;
+    }
+    btn.disabled = true;
+    msg.textContent = 'Guardando en el Sheet…';
+    msg.className = 'save-msg';
+
+    fetch(WRITE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + TOKEN
+      },
+      body: JSON.stringify({ no: p.no, datos_json: JSON.stringify(datosPorHeader) })
+    }).then(function(r){
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json().catch(function(){ return {}; });
+    }).then(function(){
+      LIVE[p.no] = Object.assign({}, LIVE[p.no] || {}, datosPorHeader);
+      msg.textContent = 'Guardado en el Sheet. Puedes seguir editando o volver más tarde.';
+      msg.className = 'save-msg ok';
+      btn.disabled = false;
+      renderPerson(p);
+      renderStat();
+    }).catch(function(err){
+      msg.textContent = 'No se pudo guardar (' + (err && err.message || 'error') + '). Intenta de nuevo.';
+      msg.className = 'save-msg err';
+      btn.disabled = false;
+    });
+  }
+
+  els.q.addEventListener('input', doSearch);
+
+  function boot(){
+    loadData().then(function(){
+      renderStat();
+      doSearch();
+    }).catch(function(err){
+      els.statLine.textContent = 'Error cargando datos';
+      els.emptyHint.hidden = false;
+      els.emptyHint.textContent = 'No se pudo cargar data.json (' + err.message + '). Verifica que el archivo esté subido en la misma carpeta que index.html en GitHub Pages.';
+    });
+  }
+
+  boot();
+})();
+</script>
