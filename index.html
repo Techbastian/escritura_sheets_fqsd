@@ -119,10 +119,11 @@
   .progress-bar > i{display:block; height:100%; background:var(--accent);}
 
   fieldset{border:none; padding:0; margin:22px 0 0;}
+  fieldset + fieldset{margin-top:30px;}
   legend{
-    font-family:'Manrope', system-ui, sans-serif; font-weight:700; font-size:.86rem;
-    text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); padding:0 0 8px;
-    width:100%; border-bottom:1px solid var(--line); margin-bottom:12px;
+    font-family:'Manrope', system-ui, sans-serif; font-weight:800; font-size:1.02rem;
+    color:var(--accent); padding:0 0 7px;
+    width:100%; border-bottom:2px solid var(--accent); margin-bottom:14px;
   }
   .field{margin-bottom:12px;}
   .field label{
@@ -190,7 +191,7 @@
 <div id="personView" hidden></div>
 
 <footer class="note">
-  El formulario solo pide datos de caracterización del talento. Formación, certificaciones, horas, soportes e intermediación los llena el equipo directo en el Sheet. Los documentos obligatorios que se recuerdan son autorización de datos, documento de identidad, recibo de servicios y certificado de formación técnica (no se piden Sisbén ni RUAF). Al abrir a una persona se consulta el Sheet en vivo: solo aparecen los datos que siguen vacíos, y lo que guardes queda escrito de inmediato en PARTICIPANTES.
+  El formulario muestra, por secciones, todos los datos que siguen vacíos en el Sheet (los links de soportes no se piden aquí). Los documentos obligatorios que se recuerdan son autorización de datos, documento de identidad, recibo de servicios y certificado de formación técnica (no se piden Sisbén ni RUAF). Al abrir a una persona se consulta el Sheet en vivo: solo aparecen los campos vacíos, y lo que guardes queda escrito de inmediato en PARTICIPANTES.
 </footer>
 
 <script>
@@ -200,13 +201,10 @@
   var LIST_URL  = 'https://n8n.srv1018582.hstgr.cloud/webhook/listar-elegibles';
   var TOKEN = 'k0PEy6pnJlH45VVNooHKTuEBkaA7NXzNiaD7Z4c0ZQU';
 
-  // Solo se le pregunta al talento información de caracterización.
-  // Estos datos los llena el equipo/operador directo en el Sheet:
-  var EXCLUDED_SECTIONS = {
-    'Formación técnica': 1, 'Certificación de industria': 1, 'Horas complementarias': 1,
-    'Documentos soporte': 1, 'Intermediación': 1
-  };
-  var EXCLUDED_FIELDS = { G: 1 }; // Operador
+  // Se muestran todas las secciones salvo los links de soportes,
+  // que se gestionan con el recuadro de documentos pendientes.
+  var EXCLUDED_SECTIONS = { 'Documentos soporte': 1 };
+  var EXCLUDED_FIELDS = {};
 
   // Preguntas que solo aplican según otra respuesta (g(letra) = valor actual)
   var NO_EXP = /^no (tiene|experiencia)/i;
@@ -591,7 +589,7 @@
     if (bar) bar.style.width = pct + '%';
     if (txt) txt.textContent = total
       ? done + ' de ' + total + ' datos pendientes ya guardados (' + pct + '%)'
-      : 'Este talento no tiene datos de caracterización pendientes.';
+      : 'Este talento no tiene datos pendientes.';
   }
 
   function renderPerson(p, liveFailed){
