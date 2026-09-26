@@ -101,6 +101,20 @@
   .contact .k{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);}
   .contact .v{font-size:.95rem; font-weight:600; color:var(--ink); word-break:break-all; user-select:all;}
   .contact .v.none{font-weight:400; color:var(--ink-soft); user-select:auto;}
+  .docs{margin-top:12px; padding:10px 12px; border-radius:9px; border:1px solid var(--line);}
+  .docs.pend{background:var(--warn-soft); border-color:transparent;}
+  .docs h3{font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
+  .docs.pend h3{color:var(--warn);}
+  .docs ul{margin:0; padding-left:18px; font-size:.9rem; line-height:1.5;}
+  .docs .ok{font-size:.9rem; color:var(--accent); font-weight:600;}
+  .reminder{margin-top:10px;}
+  .reminder textarea{width:100%; min-height:190px; font:inherit; font-size:.84rem; line-height:1.45; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:9px 10px; resize:vertical;}
+  .reminder .row{display:flex; gap:8px; align-items:center; margin-top:6px; flex-wrap:wrap;}
+  .btn-sec{font:inherit; font-size:.82rem; font-weight:600; color:var(--accent); background:var(--card); border:1px solid var(--accent); border-radius:8px; padding:7px 12px; cursor:pointer;}
+  .chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
+  .chip{font:inherit; font-size:.78rem; color:var(--ink-soft); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:5px 11px; cursor:pointer;}
+  .chip[aria-pressed="true"]{color:var(--accent-ink); background:var(--accent); border-color:var(--accent);}
+  .pill.doc{background:var(--danger-soft); color:var(--danger);}
   .progress-bar{height:6px; border-radius:99px; background:var(--line); margin-top:12px; overflow:hidden;}
   .progress-bar > i{display:block; height:100%; background:var(--accent);}
 
@@ -164,6 +178,11 @@
       <h2>Talentos elegibles <span class="mono" id="eligCount"></span></h2>
       <span class="stat">Más datos pendientes primero · en vivo del Sheet</span>
     </div>
+    <div class="chips" role="group" aria-label="Filtro">
+      <button type="button" class="chip" data-filter="all" aria-pressed="true">Todos</button>
+      <button type="button" class="chip" data-filter="docs" aria-pressed="false">Con documentos pendientes</button>
+      <button type="button" class="chip" data-filter="data" aria-pressed="false">Con datos pendientes</button>
+    </div>
     <div class="results" id="eligList"><p class="empty-hint">Cargando elegibles…</p></div>
   </section>
 </div>
@@ -171,7 +190,7 @@
 <div id="personView" hidden></div>
 
 <footer class="note">
-  El formulario solo pide datos de caracterización del talento. Formación, certificaciones, horas, soportes e intermediación los llena el equipo directo en el Sheet. Al abrir a una persona se consulta el Sheet en vivo: solo aparecen los datos que siguen vacíos, y lo que guardes queda escrito de inmediato en PARTICIPANTES.
+  El formulario solo pide datos de caracterización del talento. Formación, certificaciones, horas, soportes e intermediación los llena el equipo directo en el Sheet. Los documentos obligatorios que se recuerdan son autorización de datos, documento de identidad, recibo de servicios y certificado de formación técnica (no se piden Sisbén ni RUAF). Al abrir a una persona se consulta el Sheet en vivo: solo aparecen los datos que siguen vacíos, y lo que guardes queda escrito de inmediato en PARTICIPANTES.
 </footer>
 
 <script>
@@ -203,6 +222,16 @@
     BP: function(g){ return !NO_EXP.test(g('BM')); },
     BQ: function(g){ return !NO_EXP.test(g('BM')); }
   };
+
+  // Documentos obligatorios (definición del propio Sheet, sin Sisbén ni RUAF/ADRES).
+  // Se consideran recibidos cuando la columna "¿Tiene…? (1=sí)" vale 1.
+  var DOCS_REQ = [
+    { flag: '¿Tiene autorización de datos? (1=sí)', label: 'Formato de pre-inscripción y autorización de datos firmado' },
+    { flag: '¿Tiene documento identidad? (1=sí)',   label: 'Documento de identidad' },
+    { flag: '¿Tiene recibo servicios? (1=sí)',      label: 'Recibo de servicios públicos' },
+    { flag: '¿Tiene certificado técnica? (1=sí)',   label: 'Certificado de formación técnica' }
+  ];
+  var FILTER = 'all';
 
   var DATA = null, ASK = [];
   var ELIG = null, ELIG_SET = {};
@@ -258,6 +287,12 @@
   }
   function applies(letter, g){ return !COND[letter] || COND[letter](g); }
 
+  function docsPending(values){
+    var known = DOCS_REQ.some(function(d){ return values[d.flag] !== undefined; });
+    if (!known) return null; // sin información de documentos
+    return DOCS_REQ.filter(function(d){ return Number(values[d.flag]) !== 1; }).map(function(d){ return d.label; });
+  }
+
   function pendingOf(values){
     var g = getter(values);
     var total = 0, pend = [];
@@ -302,6 +337,7 @@
         Object.keys(d.headers || {}).forEach(function(n){ HDR[n] = d.headers[n]; });
         ELIG = (d.participantes || []).map(function(e){
           e.stat = pendingOf(e.v || {});
+          e.docs = docsPending(e.d || {}) || [];
           return e;
         }).sort(function(a, b){ return b.stat.pend.length - a.stat.pend.length || a.no - b.no; });
         ELIG_SET = {};
@@ -318,12 +354,13 @@
 
   function renderStat(){
     if (!ELIG){ els.statLine.textContent = 'cargando…'; return; }
-    var pend = 0, complete = 0;
+    var pend = 0, withData = 0, withDocs = 0;
     ELIG.forEach(function(e){
       pend += e.stat.pend.length;
-      if (e.stat.pend.length === 0) complete++;
+      if (e.stat.pend.length) withData++;
+      if (e.docs.length) withDocs++;
     });
-    els.statLine.innerHTML = '<b>' + ELIG.length + '</b> elegibles · <b>' + pend + '</b> datos de caracterización pendientes · <b>' + complete + '</b> completos';
+    els.statLine.innerHTML = '<b>' + ELIG.length + '</b> elegibles · <b>' + withData + '</b> con datos pendientes (' + pend + ' en total) · <b>' + withDocs + '</b> con documentos pendientes';
   }
 
   // ---------- Lista y búsqueda ----------
@@ -346,8 +383,9 @@
     var right = '';
     if (e){
       var s = statusBits(e);
-      right = '<span class="meter">' + s.pill + s.bar + '</span>';
-      btn.title = s.tip;
+      var dp = e.docs && e.docs.length ? '<span class="pill doc">' + e.docs.length + ' doc' + (e.docs.length === 1 ? '' : 's') + '</span>' : '';
+      right = '<span class="meter"><span style="display:flex;gap:4px">' + dp + s.pill + '</span>' + s.bar + '</span>';
+      btn.title = s.tip + (e.docs && e.docs.length ? '\nDocumentos: ' + e.docs.join(', ') : '');
     }
     btn.innerHTML = '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' + right;
     btn.querySelector('.nm').textContent = p.nombre;
@@ -365,8 +403,23 @@
     var list = document.getElementById('eligList');
     document.getElementById('eligCount').textContent = '(' + ELIG.length + ')';
     list.innerHTML = '';
-    ELIG.forEach(function(e){ list.appendChild(personRow(e, e)); });
+    var shown = ELIG.filter(function(e){
+      if (FILTER === 'docs') return e.docs.length > 0;
+      if (FILTER === 'data') return e.stat.pend.length > 0;
+      return true;
+    });
+    document.getElementById('eligCount').textContent = '(' + shown.length + (FILTER === 'all' ? '' : ' de ' + ELIG.length) + ')';
+    shown.forEach(function(e){ list.appendChild(personRow(e, e)); });
+    if (!shown.length) list.innerHTML = '<p class="empty-hint">Nadie en este filtro.</p>';
   }
+
+  document.querySelectorAll('.chip[data-filter]').forEach(function(ch){
+    ch.addEventListener('click', function(){
+      FILTER = ch.dataset.filter;
+      document.querySelectorAll('.chip[data-filter]').forEach(function(c){ c.setAttribute('aria-pressed', c === ch ? 'true' : 'false'); });
+      if (ELIG) renderElegibles();
+    });
+  });
 
   function doSearch(){
     if (!DATA) return;
@@ -430,6 +483,48 @@
     return box;
   }
 
+  function firstName(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
+  function titleCase(s){ return s.toLowerCase().replace(/(^|\s)\S/g, function(c){ return c.toUpperCase(); }); }
+
+  function reminderText(p, docs){
+    return 'Hola, ' + titleCase(firstName(p.nombre)) + '. Te escribimos del Equipo de Disruptia para acompañarte en tu proceso en el Fondo Quiero Ser Digital.\n\n' +
+      'Para completar tu registro nos faltan estos documentos:\n' +
+      docs.map(function(d){ return '- ' + d; }).join('\n') + '\n\n' +
+      'Puedes enviarlos por este mismo chat, en PDF o en foto legible. Si tienes alguna duda, escríbenos y te ayudamos.\n\n' +
+      'Saludos disruptivos,\nEquipo de Disruptia';
+  }
+
+  function docsBlock(p, values){
+    var docs = docsPending(values);
+    var box = document.createElement('div');
+    if (docs === null){
+      box.className = 'docs';
+      box.innerHTML = '<h3>Documentos obligatorios</h3><div class="sub">Sin información de documentos en el Sheet.</div>';
+      return box;
+    }
+    if (!docs.length){
+      box.className = 'docs';
+      box.innerHTML = '<h3>Documentos obligatorios</h3><div class="ok">Todos recibidos</div>';
+      return box;
+    }
+    box.className = 'docs pend';
+    box.innerHTML = '<h3>Documentos obligatorios pendientes (' + docs.length + ')</h3><ul></ul>' +
+      '<div class="reminder"><textarea readonly aria-label="Mensaje de recordatorio"></textarea>' +
+      '<div class="row"><button type="button" class="btn-sec">Copiar mensaje</button><span class="sub" aria-live="polite"></span></div></div>';
+    var ul = box.querySelector('ul');
+    docs.forEach(function(d){ var li = document.createElement('li'); li.textContent = d; ul.appendChild(li); });
+    var ta = box.querySelector('textarea');
+    ta.value = reminderText(p, docs);
+    var note = box.querySelector('.row .sub');
+    box.querySelector('.btn-sec').addEventListener('click', function(){
+      var done = function(){ note.textContent = 'Copiado'; setTimeout(function(){ note.textContent = ''; }, 2000); };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(ta.value).then(done, function(){ ta.select(); note.textContent = 'Selecciona y copia con Ctrl+C'; });
+      } else { ta.select(); note.textContent = 'Selecciona y copia con Ctrl+C'; }
+    });
+    return box;
+  }
+
   function openPerson(no){
     var p = DATA.people.find(function(x){ return x.no === no; });
     if (!p) return;
@@ -441,7 +536,7 @@
     var liveFailed = false;
     fetchLive(no).catch(function(){
       liveFailed = true;
-      if (ELIG_SET[no]) LIVE[no] = Object.assign({}, ELIG_SET[no].v);
+      if (ELIG_SET[no]) LIVE[no] = Object.assign({}, ELIG_SET[no].v, ELIG_SET[no].d);
     }).then(function(){
       if (!current || current.no !== no) return;
       if (!LIVE[no]){
@@ -514,6 +609,9 @@
     card.querySelector('.sub').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
     card.querySelector('.hd').appendChild(backButton());
     card.insertBefore(contactBlock(values), card.querySelector('.progress-bar'));
+    var docVals = values;
+    if (docsPending(values) === null && ELIG_SET[p.no]) docVals = ELIG_SET[p.no].d || {};
+    card.insertBefore(docsBlock(p, docVals), card.querySelector('.progress-bar'));
     if (liveFailed){
       var warn = document.createElement('div');
       warn.className = 'sub';
