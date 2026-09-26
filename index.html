@@ -96,6 +96,11 @@
     border:1px solid var(--line); border-radius:7px; padding:6px 10px; cursor:pointer; flex:none;
   }
   .back-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .contact{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:12px; padding:10px 12px; border-radius:9px; background:var(--accent-soft);}
+  .contact > div{display:flex; flex-direction:column; gap:1px; min-width:0;}
+  .contact .k{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);}
+  .contact .v{font-size:.95rem; font-weight:600; color:var(--ink); word-break:break-all; user-select:all;}
+  .contact .v.none{font-weight:400; color:var(--ink-soft); user-select:auto;}
   .progress-bar{height:6px; border-radius:99px; background:var(--line); margin-top:12px; overflow:hidden;}
   .progress-bar > i{display:block; height:100%; background:var(--accent);}
 
@@ -157,7 +162,7 @@
   <section id="eligSection">
     <div class="elig-head">
       <h2>Talentos elegibles <span class="mono" id="eligCount"></span></h2>
-      <span class="stat">Menor completitud primero · datos en vivo del Sheet</span>
+      <span class="stat">Más datos pendientes primero · en vivo del Sheet</span>
     </div>
     <div class="results" id="eligList"><p class="empty-hint">Cargando elegibles…</p></div>
   </section>
@@ -166,18 +171,44 @@
 <div id="personView" hidden></div>
 
 <footer class="note">
-  Las respuestas se guardan directamente en el Google Sheet de PARTICIPANTES en cuanto le das a "Guardar respuestas" — no hay paso de sincronización aparte. Al abrir cada persona se revisa el Sheet en vivo, así que si alguien más ya llenó un campo (aquí o directo en el Sheet), no se vuelve a pedir.
+  El formulario solo pide datos de caracterización del talento. Formación, certificaciones, horas, soportes e intermediación los llena el equipo directo en el Sheet. Al abrir a una persona se consulta el Sheet en vivo: solo aparecen los datos que siguen vacíos, y lo que guardes queda escrito de inmediato en PARTICIPANTES.
 </footer>
 
 <script>
 (function(){
-  var READ_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/leer-participante';
+  var READ_URL  = 'https://n8n.srv1018582.hstgr.cloud/webhook/leer-participante';
   var WRITE_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/guardar-dato';
-  var LIST_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/listar-elegibles';
+  var LIST_URL  = 'https://n8n.srv1018582.hstgr.cloud/webhook/listar-elegibles';
   var TOKEN = 'k0PEy6pnJlH45VVNooHKTuEBkaA7NXzNiaD7Z4c0ZQU';
 
-  var ELIG = null, ELIG_SET = {}; // lista en vivo de elegibles desde el Sheet
-  var DATA = null, LIVE = {}; // LIVE: {no: {headerDelSheet: valor, ...}} — snapshot en vivo del Sheet
+  // Solo se le pregunta al talento información de caracterización.
+  // Estos datos los llena el equipo/operador directo en el Sheet:
+  var EXCLUDED_SECTIONS = {
+    'Formación técnica': 1, 'Certificación de industria': 1, 'Horas complementarias': 1,
+    'Documentos soporte': 1, 'Intermediación': 1
+  };
+  var EXCLUDED_FIELDS = { G: 1 }; // Operador
+
+  // Preguntas que solo aplican según otra respuesta (g(letra) = valor actual)
+  var NO_EXP = /^no (tiene|experiencia)/i;
+  var COND = {
+    Q:  function(g){ return /^(barranquilla|bogot|cali)/i.test(g('N')); },
+    U:  function(g){ return /desemplead/i.test(g('T')); },
+    V:  function(g){ return /^estudiante/i.test(g('T')); },
+    AO: function(g){ return /^s[ií]$/i.test(g('AN')); },
+    AF: function(g){ var n = g('AE'); return n !== '' && !/colombian/i.test(n); },
+    AH: function(g){ return /^(t[eé]cnico|tecn[oó]logo|universitario|posgrado)$/i.test(g('AG')); },
+    BL: function(g){ return /^s[ií]$/i.test(g('BK')); },
+    BO: function(g){ var v = g('BN'); return v !== '' && !NO_EXP.test(v); },
+    BP: function(g){ return !NO_EXP.test(g('BM')); },
+    BQ: function(g){ return !NO_EXP.test(g('BM')); }
+  };
+
+  var DATA = null, ASK = [];
+  var ELIG = null, ELIG_SET = {};
+  var HDR = {};   // encabezado normalizado -> encabezado real del Sheet (con saltos de línea)
+  var LIVE = {};  // no -> {encabezadoNormalizado: valor} leído en vivo
+  var SHOWN = {}; // no -> letras vacías al abrir la ficha
   var current = null;
 
   var els = {
@@ -199,33 +230,55 @@
   });
 
   function norm(s){
-    return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+    return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
   }
+  function nh(s){ return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
+  function filled(v){ return v !== undefined && v !== null && String(v).trim() !== ''; }
+  function hdrOf(letter){ return nh(DATA.fields[letter].header); }
 
-  function answeredCount(no){
-    // La lista/estadística usa el estado de la última exportación del Excel
-    // (data.json) para no hacer cientos de llamadas al Sheet de una vez.
-    // El chequeo en vivo contra el Sheet ocurre al abrir cada persona.
-    return 0;
-  }
-
-  function renderStat(){
-    if (!DATA) return;
-    var totalPeople = DATA.people.length;
-    var totalAsk = 0, peopleComplete = 0;
-    DATA.people.forEach(function(p){
-      totalAsk += p.missing.length;
-      if (p.missing.length === 0) peopleComplete++;
+  function normRow(row){
+    var o = {};
+    Object.keys(row || {}).forEach(function(k){
+      var n = nh(k);
+      o[n] = row[k];
+      if (!HDR[n]) HDR[n] = k;
     });
-    els.statLine.innerHTML = totalPeople + ' personas · <b>' + totalAsk + '</b> campos pendientes (según última exportación) · <b>' + peopleComplete + '</b> completas';
+    return o;
   }
 
+  function getter(values, form){
+    return function(letter){
+      if (form){
+        var inp = form.querySelector('[data-letter="' + letter + '"]');
+        if (inp && inp.value.trim() !== '') return inp.value.trim();
+      }
+      var v = values[hdrOf(letter)];
+      return v == null ? '' : String(v).trim();
+    };
+  }
+  function applies(letter, g){ return !COND[letter] || COND[letter](g); }
+
+  function pendingOf(values){
+    var g = getter(values);
+    var total = 0, pend = [];
+    ASK.forEach(function(l){
+      if (!applies(l, g)) return;
+      total++;
+      if (!filled(values[hdrOf(l)])) pend.push(l);
+    });
+    return { total: total, pend: pend };
+  }
+
+  // ---------- Datos ----------
   function loadData(){
     return fetch('data.json').then(function(r){
       if (!r.ok) throw new Error('http ' + r.status);
       return r.json();
     }).then(function(d){
       DATA = d;
+      ASK = Object.keys(d.fields).filter(function(l){
+        return !EXCLUDED_FIELDS[l] && !EXCLUDED_SECTIONS[d.fields[l].section];
+      });
     });
   }
 
@@ -236,7 +289,8 @@
       if (!r.ok) throw new Error('http ' + r.status);
       return r.json();
     }).then(function(row){
-      LIVE[no] = row || {};
+      if (!row || row['No.'] === undefined) throw new Error('no encontrado en el Sheet');
+      LIVE[no] = normRow(row);
       return LIVE[no];
     });
   }
@@ -245,11 +299,14 @@
     return fetch(LIST_URL, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
       .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function(d){
-        ELIG = (d.participantes || []).slice().sort(function(a,b){
-          return (a.completitud == null ? 0 : a.completitud) - (b.completitud == null ? 0 : b.completitud);
-        });
+        Object.keys(d.headers || {}).forEach(function(n){ HDR[n] = d.headers[n]; });
+        ELIG = (d.participantes || []).map(function(e){
+          e.stat = pendingOf(e.v || {});
+          return e;
+        }).sort(function(a, b){ return b.stat.pend.length - a.stat.pend.length || a.no - b.no; });
         ELIG_SET = {};
         ELIG.forEach(function(e){ ELIG_SET[e.no] = e; });
+        renderStat();
         renderElegibles();
         doSearch();
       })
@@ -259,26 +316,48 @@
       });
   }
 
-  function pendientesCount(txt){
-    var m = /^(\d+)\s+pendiente/.exec(txt || '');
-    return m ? Number(m[1]) : 0;
+  function renderStat(){
+    if (!ELIG){ els.statLine.textContent = 'cargando…'; return; }
+    var pend = 0, complete = 0;
+    ELIG.forEach(function(e){
+      pend += e.stat.pend.length;
+      if (e.stat.pend.length === 0) complete++;
+    });
+    els.statLine.innerHTML = '<b>' + ELIG.length + '</b> elegibles · <b>' + pend + '</b> datos de caracterización pendientes · <b>' + complete + '</b> completos';
   }
 
-  function eligRow(e){
-    var pct = e.completitud == null ? 0 : Math.round(e.completitud * 100);
-    var pend = pendientesCount(e.pendientes);
+  // ---------- Lista y búsqueda ----------
+  function statusBits(e){
+    var n = e.stat.pend.length, t = e.stat.total || 1;
+    var pct = Math.round((t - n) / t * 100);
+    return {
+      pill: '<span class="pill ' + (n === 0 ? 'done' : 'pend') + '">' +
+            (n === 0 ? 'completo' : n + ' pendiente' + (n === 1 ? '' : 's')) + '</span>',
+      bar: '<span class="bar"><i style="width:' + pct + '%"></i></span>',
+      pct: pct,
+      tip: n ? 'Falta: ' + e.stat.pend.map(function(l){ return DATA.fields[l].label; }).join(', ') : 'Caracterización completa'
+    };
+  }
+
+  function personRow(p, e){
     var btn = document.createElement('button');
     btn.className = 'result';
     btn.type = 'button';
-    btn.title = e.pendientes || '';
-    btn.innerHTML =
-      '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' +
-      '<span class="meter"><span class="pill ' + (pend === 0 ? 'done' : 'pend') + '">' +
-        (pend === 0 ? 'completo' : pend + ' pendiente' + (pend === 1 ? '' : 's')) + '</span>' +
-      '<span class="bar"><i style="width:' + pct + '%"></i></span></span>';
-    btn.querySelector('.nm').textContent = e.nombre;
-    btn.querySelector('.doc').textContent = 'No. ' + e.no + ' · CC ' + (e.doc || '—') + ' · ' + pct + '%';
-    btn.addEventListener('click', function(){ openPerson(e.no); });
+    var right = '';
+    if (e){
+      var s = statusBits(e);
+      right = '<span class="meter">' + s.pill + s.bar + '</span>';
+      btn.title = s.tip;
+    }
+    btn.innerHTML = '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' + right;
+    btn.querySelector('.nm').textContent = p.nombre;
+    if (e && els.q.value.trim()){
+      var tag = document.createElement('span');
+      tag.className = 'tag-el'; tag.textContent = 'elegible';
+      btn.querySelector('.nm').appendChild(tag);
+    }
+    btn.querySelector('.doc').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—') + (e ? ' · ' + statusBits(e).pct + '%' : '');
+    btn.addEventListener('click', function(){ openPerson(p.no); });
     return btn;
   }
 
@@ -286,7 +365,7 @@
     var list = document.getElementById('eligList');
     document.getElementById('eligCount').textContent = '(' + ELIG.length + ')';
     list.innerHTML = '';
-    ELIG.forEach(function(e){ list.appendChild(eligRow(e)); });
+    ELIG.forEach(function(e){ list.appendChild(personRow(e, e)); });
   }
 
   function doSearch(){
@@ -294,48 +373,24 @@
     var term = norm(els.q.value);
     els.results.innerHTML = '';
     document.getElementById('eligSection').hidden = !!term;
-    if (!term){
-      els.emptyHint.hidden = true;
-      return;
-    }
+    if (!term){ els.emptyHint.hidden = true; return; }
     var matches = DATA.people.filter(function(p){
       return norm(p.nombre).indexOf(term) !== -1 || (p.doc && p.doc.indexOf(term) !== -1);
     }).slice(0, 12);
     els.emptyHint.hidden = matches.length > 0;
-    if (matches.length === 0){
-      els.emptyHint.hidden = false;
-      els.emptyHint.textContent = 'Sin resultados para "' + els.q.value + '".';
-    }
-    matches.forEach(function(p){
-      var total = p.missing.length;
-      var done = Math.min(answeredCount(p.no), total);
-      var pending = total - done;
-      var btn = document.createElement('button');
-      btn.className = 'result';
-      btn.type = 'button';
-      var pillClass = pending === 0 ? 'done' : 'pend';
-      var pillText = pending === 0 ? 'completo' : (pending + ' pendiente' + (pending===1?'':'s'));
-      btn.innerHTML =
-        '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' +
-        '<span class="pill ' + pillClass + '">' + pillText + '</span>';
-      btn.querySelector('.nm').textContent = p.nombre;
-      if (ELIG_SET[p.no]){
-        var tag = document.createElement('span');
-        tag.className = 'tag-el'; tag.textContent = 'elegible';
-        btn.querySelector('.nm').appendChild(tag);
-      }
-      btn.querySelector('.doc').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
-      btn.addEventListener('click', function(){ openPerson(p.no); });
-      els.results.appendChild(btn);
-    });
+    if (!matches.length) els.emptyHint.textContent = 'Sin resultados para "' + els.q.value + '".';
+    matches.forEach(function(p){ els.results.appendChild(personRow(p, ELIG_SET[p.no])); });
   }
 
-  function fieldRow(letter, meta, savedVal){
+  // ---------- Ficha de la persona ----------
+  function fieldRow(letter, meta){
     var wrap = document.createElement('div');
-    wrap.className = 'field' + (savedVal !== undefined && savedVal !== '' && savedVal !== null ? ' saved' : '');
+    wrap.className = 'field';
+    wrap.dataset.row = letter;
     var label = document.createElement('label');
     label.setAttribute('for', 'f_' + letter);
-    label.innerHTML = '<span>' + meta.label + '</span><span class="badge">' + letter + '</span>';
+    label.innerHTML = '<span></span><span class="badge">' + letter + '</span>';
+    label.firstChild.textContent = meta.label;
     wrap.appendChild(label);
 
     var input;
@@ -344,31 +399,35 @@
       var optBlank = document.createElement('option');
       optBlank.value = ''; optBlank.textContent = '— seleccionar —';
       input.appendChild(optBlank);
-      (meta.options||[]).forEach(function(o){
+      (meta.options || []).forEach(function(o){
         var opt = document.createElement('option');
         opt.value = o; opt.textContent = o;
         input.appendChild(opt);
       });
     } else {
       input = document.createElement('input');
-      input.type = meta.type === 'number' ? 'number' : (meta.type === 'link' ? 'url' : 'text');
-      if (meta.type === 'link') input.placeholder = 'Enlace de Drive al documento';
+      input.type = meta.type === 'number' ? 'number' : 'text';
+      if (meta.type === 'number') input.inputMode = 'numeric';
     }
     input.id = 'f_' + letter;
     input.dataset.letter = letter;
-    if (savedVal !== undefined && savedVal !== null) input.value = savedVal;
     wrap.appendChild(input);
-
-    if (meta.type === 'link'){
-      var hint = document.createElement('div');
-      hint.className = 'hint';
-      hint.textContent = 'Pega el enlace para compartir del archivo en Drive.';
-      wrap.appendChild(hint);
-    }
-    input.addEventListener('input', function(){
-      wrap.classList.toggle('saved', input.value.trim() !== '');
-    });
     return wrap;
+  }
+
+  function contactBlock(values){
+    var cel = values['Teléfono Celular'], mail = values['Correo Electrónico'];
+    var box = document.createElement('div');
+    box.className = 'contact';
+    box.innerHTML =
+      '<div><span class="k">Celular</span><span class="v mono"></span></div>' +
+      '<div><span class="k">Correo</span><span class="v"></span></div>';
+    var vs = box.querySelectorAll('.v');
+    vs[0].textContent = filled(cel) ? String(cel) : 'Sin registrar';
+    vs[1].textContent = filled(mail) ? String(mail) : 'Sin registrar';
+    if (!filled(cel)) vs[0].classList.add('none');
+    if (!filled(mail)) vs[1].classList.add('none');
+    return box;
   }
 
   function openPerson(no){
@@ -378,67 +437,110 @@
     els.searchView.hidden = true;
     els.personView.hidden = false;
     els.personView.innerHTML = '<p class="empty-hint">Consultando el Sheet en vivo…</p>';
-    fetchLive(no).catch(function(){ LIVE[no] = LIVE[no] || {}; }).then(function(){
-      if (!current || current.no !== no) return; // el usuario ya se movió a otra pantalla
-      renderPerson(p);
-      els.personView.scrollIntoView({block:'start'});
+    window.scrollTo(0, 0);
+    var liveFailed = false;
+    fetchLive(no).catch(function(){
+      liveFailed = true;
+      if (ELIG_SET[no]) LIVE[no] = Object.assign({}, ELIG_SET[no].v);
+    }).then(function(){
+      if (!current || current.no !== no) return;
+      if (!LIVE[no]){
+        els.personView.innerHTML = '';
+        var err = document.createElement('p');
+        err.className = 'empty-hint';
+        err.textContent = 'No se pudo leer a esta persona en el Sheet. Revisa la conexión y vuelve a intentarlo.';
+        els.personView.appendChild(err);
+        els.personView.appendChild(backButton());
+        return;
+      }
+      var values = LIVE[no];
+      SHOWN[no] = ASK.filter(function(l){ return !filled(values[hdrOf(l)]); });
+      renderPerson(p, liveFailed);
     });
   }
 
-  function renderPerson(p){
-    var live = LIVE[p.no] || {};
-    var saved = {};
-    p.missing.forEach(function(letter){
-      var header = DATA.fields[letter].header;
-      var v = live[header];
-      if (v !== undefined && v !== null && v !== '') saved[letter] = v;
-    });
-    var total = p.missing.length;
-    var done = Object.keys(saved).length;
-    var pct = total > 0 ? Math.round(done/total*100) : 100;
-
-    var wrap = document.createElement('div');
-
-    var card = document.createElement('div');
-    card.className = 'person-card';
-    card.innerHTML =
-      '<div class="hd">' +
-        '<div><h2></h2><div class="sub mono"></div></div>' +
-        '<button type="button" class="back-btn">← Buscar otra persona</button>' +
-      '</div>' +
-      '<div class="progress-bar"><i style="width:' + pct + '%"></i></div>' +
-      '<div class="sub" style="margin-top:6px;">' + done + ' de ' + total + ' campos guardados (' + pct + '%)</div>';
-    card.querySelector('h2').textContent = p.nombre;
-    card.querySelector('.sub').textContent = 'Participante No. ' + p.no + ' · CC ' + (p.doc || '—');
-    card.querySelector('.back-btn').addEventListener('click', function(){
+  function backButton(){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'back-btn';
+    b.textContent = '← Volver a la lista';
+    b.addEventListener('click', function(){
       els.personView.hidden = true;
       els.searchView.hidden = false;
       els.personView.innerHTML = '';
       current = null;
-      renderStat();
       doSearch();
-      fetchElegibles(); // refresca % y pendientes tras guardar
+      fetchElegibles();
     });
+    return b;
+  }
+
+  function updateVisibility(form, p){
+    var values = LIVE[p.no] || {};
+    var g = getter(values, form);
+    var total = 0, done = 0;
+    form.querySelectorAll('[data-row]').forEach(function(row){
+      var l = row.dataset.row;
+      var show = applies(l, g);
+      row.hidden = !show;
+      if (show){
+        total++;
+        if (row.classList.contains('saved')) done++;
+      }
+    });
+    form.querySelectorAll('fieldset').forEach(function(fs){
+      fs.hidden = !fs.querySelector('[data-row]:not([hidden])');
+    });
+    var pct = total ? Math.round(done / total * 100) : 100;
+    var bar = document.getElementById('pBar'), txt = document.getElementById('pTxt');
+    if (bar) bar.style.width = pct + '%';
+    if (txt) txt.textContent = total
+      ? done + ' de ' + total + ' datos pendientes ya guardados (' + pct + '%)'
+      : 'Este talento no tiene datos de caracterización pendientes.';
+  }
+
+  function renderPerson(p, liveFailed){
+    var values = LIVE[p.no] || {};
+    var letters = SHOWN[p.no] || [];
+
+    var wrap = document.createElement('div');
+    var card = document.createElement('div');
+    card.className = 'person-card';
+    card.innerHTML =
+      '<div class="hd"><div><h2></h2><div class="sub mono"></div></div></div>' +
+      '<div class="progress-bar"><i id="pBar" style="width:0%"></i></div>' +
+      '<div class="sub" id="pTxt" style="margin-top:6px;"></div>';
+    card.querySelector('h2').textContent = p.nombre;
+    card.querySelector('.sub').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
+    card.querySelector('.hd').appendChild(backButton());
+    card.insertBefore(contactBlock(values), card.querySelector('.progress-bar'));
+    if (liveFailed){
+      var warn = document.createElement('div');
+      warn.className = 'sub';
+      warn.style.color = 'var(--warn)';
+      warn.textContent = 'No se pudo leer el Sheet en vivo; se muestran los datos de la lista de elegibles.';
+      card.appendChild(warn);
+    }
     wrap.appendChild(card);
 
     var form = document.createElement('form');
     form.id = 'personForm';
-
     var bySection = {};
-    p.missing.forEach(function(letter){
-      var meta = DATA.fields[letter];
-      var sec = meta.section || 'Otros';
-      (bySection[sec] = bySection[sec] || []).push(letter);
+    letters.forEach(function(l){
+      var sec = DATA.fields[l].section || 'Otros';
+      (bySection[sec] = bySection[sec] || []).push(l);
     });
-
     DATA.sectionOrder.forEach(function(sec){
       if (!bySection[sec]) return;
       var fs = document.createElement('fieldset');
       var lg = document.createElement('legend');
       lg.textContent = sec;
       fs.appendChild(lg);
-      bySection[sec].forEach(function(letter){
-        fs.appendChild(fieldRow(letter, DATA.fields[letter], saved[letter]));
+      bySection[sec].forEach(function(l){
+        var row = fieldRow(l, DATA.fields[l]);
+        var cur = values[hdrOf(l)];
+        if (filled(cur)){ row.classList.add('saved'); row.querySelector('[data-letter]').value = cur; }
+        fs.appendChild(row);
       });
       form.appendChild(fs);
     });
@@ -448,32 +550,35 @@
     bar.innerHTML = '<button type="submit" class="primary">Guardar respuestas</button><span class="save-msg" id="saveMsg"></span>';
     form.appendChild(bar);
 
-    form.addEventListener('submit', function(ev){
-      ev.preventDefault();
-      submitForm(p);
-    });
+    form.addEventListener('input', function(){ updateVisibility(form, p); });
+    form.addEventListener('change', function(){ updateVisibility(form, p); });
+    form.addEventListener('submit', function(ev){ ev.preventDefault(); submitForm(p, form); });
 
     wrap.appendChild(form);
     els.personView.innerHTML = '';
     els.personView.appendChild(wrap);
+    updateVisibility(form, p);
+    if (!letters.length) bar.hidden = true;
   }
 
-  function submitForm(p){
+  function submitForm(p, form){
     var msg = document.getElementById('saveMsg');
-    var btn = document.querySelector('#personForm button.primary');
-    var inputs = document.querySelectorAll('#personForm [data-letter]');
-    var datosPorHeader = {};
-    var any = false;
-    inputs.forEach(function(inp){
-      var v = inp.value;
-      if (typeof v === 'string') v = v.trim();
-      if (v !== '' && v !== null && v !== undefined){
-        var letter = inp.dataset.letter;
-        var header = DATA.fields[letter].header;
-        datosPorHeader[header] = v;
-        any = true;
-      }
+    var btn = form.querySelector('button.primary');
+    var datos = {}, normSaved = {}, missingHdr = [], any = false;
+    form.querySelectorAll('[data-row]:not([hidden]) [data-letter]').forEach(function(inp){
+      var v = inp.value.trim();
+      if (!v) return;
+      var l = inp.dataset.letter, n = hdrOf(l), real = HDR[n];
+      if (!real){ missingHdr.push(DATA.fields[l].label); return; }
+      datos[real] = v;
+      normSaved[n] = v;
+      any = true;
     });
+    if (missingHdr.length){
+      msg.textContent = 'No se encontró en el Sheet la columna de: ' + missingHdr.join(', ') + '. Avisa a Sebastián.';
+      msg.className = 'save-msg err';
+      return;
+    }
     if (!any){
       msg.textContent = 'No hay respuestas para guardar.';
       msg.className = 'save-msg err';
@@ -485,21 +590,19 @@
 
     fetch(WRITE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + TOKEN
-      },
-      body: JSON.stringify({ no: p.no, datos_json: JSON.stringify(datosPorHeader) })
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+      body: JSON.stringify({ no: p.no, datos_json: JSON.stringify(datos) })
     }).then(function(r){
       if (!r.ok) throw new Error('http ' + r.status);
       return r.json().catch(function(){ return {}; });
     }).then(function(){
-      LIVE[p.no] = Object.assign({}, LIVE[p.no] || {}, datosPorHeader);
-      msg.textContent = 'Guardado en el Sheet. Puedes seguir editando o volver más tarde.';
-      msg.className = 'save-msg ok';
-      btn.disabled = false;
+      LIVE[p.no] = Object.assign({}, LIVE[p.no] || {}, normSaved);
+      var e = ELIG_SET[p.no];
+      if (e){ e.v = Object.assign({}, e.v, normSaved); e.stat = pendingOf(e.v); }
       renderPerson(p);
-      renderStat();
+      var m = document.getElementById('saveMsg');
+      m.textContent = 'Guardado en el Sheet.';
+      m.className = 'save-msg ok';
     }).catch(function(err){
       msg.textContent = 'No se pudo guardar (' + (err && err.message || 'error') + '). Intenta de nuevo.';
       msg.className = 'save-msg err';
@@ -510,14 +613,14 @@
   els.q.addEventListener('input', doSearch);
 
   function boot(){
+    renderStat();
     loadData().then(function(){
-      renderStat();
       doSearch();
       fetchElegibles();
     }).catch(function(err){
       els.statLine.textContent = 'Error cargando datos';
       els.emptyHint.hidden = false;
-      els.emptyHint.textContent = 'No se pudo cargar data.json (' + err.message + '). Verifica que el archivo esté subido en la misma carpeta que index.html en GitHub Pages.';
+      els.emptyHint.textContent = 'No se pudo cargar data.json (' + err.message + '). Verifica que el archivo esté subido en la misma carpeta que index.html.';
     });
   }
 
