@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Completitud Disruptia</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -75,6 +76,13 @@
   .pill.pend{background:var(--warn-soft); color:var(--warn);}
   .pill.done{background:var(--accent-soft); color:var(--accent);}
   .empty-hint{color:var(--ink-soft); font-size:.85rem; padding:20px 4px; text-align:center;}
+  .elig-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:20px;}
+  .elig-head h2{font-size:1rem; font-weight:800;}
+  .elig-head h2 .mono{font-size:.85rem; color:var(--ink-soft); font-weight:500;}
+  .result .meter{display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex:none;}
+  .result .bar{width:72px; height:5px; border-radius:99px; background:var(--line); overflow:hidden;}
+  .result .bar > i{display:block; height:100%; background:var(--accent);}
+  .tag-el{font-family:'IBM Plex Mono',monospace; font-size:.65rem; color:var(--accent); background:var(--accent-soft); border-radius:5px; padding:1px 5px; margin-left:6px;}
 
   .person-card{
     margin-top:16px; background:var(--card); border:1px solid var(--line);
@@ -145,7 +153,14 @@
     <input type="text" id="q" placeholder="Buscar por nombre o número de documento…" autocomplete="off">
   </div>
   <div class="results" id="results"></div>
-  <p class="empty-hint" id="emptyHint">Escribe un nombre o documento para empezar.</p>
+  <p class="empty-hint" id="emptyHint" hidden></p>
+  <section id="eligSection">
+    <div class="elig-head">
+      <h2>Talentos elegibles <span class="mono" id="eligCount"></span></h2>
+      <span class="stat">Menor completitud primero · datos en vivo del Sheet</span>
+    </div>
+    <div class="results" id="eligList"><p class="empty-hint">Cargando elegibles…</p></div>
+  </section>
 </div>
 
 <div id="personView" hidden></div>
@@ -158,8 +173,10 @@
 (function(){
   var READ_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/leer-participante';
   var WRITE_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/guardar-dato';
+  var LIST_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/listar-elegibles';
   var TOKEN = 'k0PEy6pnJlH45VVNooHKTuEBkaA7NXzNiaD7Z4c0ZQU';
 
+  var ELIG = null, ELIG_SET = {}; // lista en vivo de elegibles desde el Sheet
   var DATA = null, LIVE = {}; // LIVE: {no: {headerDelSheet: valor, ...}} — snapshot en vivo del Sheet
   var current = null;
 
@@ -182,7 +199,7 @@
   });
 
   function norm(s){
-    return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+    return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   }
 
   function answeredCount(no){
@@ -224,12 +241,61 @@
     });
   }
 
+  function fetchElegibles(){
+    return fetch(LIST_URL, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
+      .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then(function(d){
+        ELIG = (d.participantes || []).slice().sort(function(a,b){
+          return (a.completitud == null ? 0 : a.completitud) - (b.completitud == null ? 0 : b.completitud);
+        });
+        ELIG_SET = {};
+        ELIG.forEach(function(e){ ELIG_SET[e.no] = e; });
+        renderElegibles();
+        doSearch();
+      })
+      .catch(function(err){
+        document.getElementById('eligList').innerHTML =
+          '<p class="empty-hint">No se pudo cargar la lista de elegibles (' + err.message + '). Usa el buscador.</p>';
+      });
+  }
+
+  function pendientesCount(txt){
+    var m = /^(\d+)\s+pendiente/.exec(txt || '');
+    return m ? Number(m[1]) : 0;
+  }
+
+  function eligRow(e){
+    var pct = e.completitud == null ? 0 : Math.round(e.completitud * 100);
+    var pend = pendientesCount(e.pendientes);
+    var btn = document.createElement('button');
+    btn.className = 'result';
+    btn.type = 'button';
+    btn.title = e.pendientes || '';
+    btn.innerHTML =
+      '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' +
+      '<span class="meter"><span class="pill ' + (pend === 0 ? 'done' : 'pend') + '">' +
+        (pend === 0 ? 'completo' : pend + ' pendiente' + (pend === 1 ? '' : 's')) + '</span>' +
+      '<span class="bar"><i style="width:' + pct + '%"></i></span></span>';
+    btn.querySelector('.nm').textContent = e.nombre;
+    btn.querySelector('.doc').textContent = 'No. ' + e.no + ' · CC ' + (e.doc || '—') + ' · ' + pct + '%';
+    btn.addEventListener('click', function(){ openPerson(e.no); });
+    return btn;
+  }
+
+  function renderElegibles(){
+    var list = document.getElementById('eligList');
+    document.getElementById('eligCount').textContent = '(' + ELIG.length + ')';
+    list.innerHTML = '';
+    ELIG.forEach(function(e){ list.appendChild(eligRow(e)); });
+  }
+
   function doSearch(){
     if (!DATA) return;
     var term = norm(els.q.value);
     els.results.innerHTML = '';
+    document.getElementById('eligSection').hidden = !!term;
     if (!term){
-      els.emptyHint.hidden = false;
+      els.emptyHint.hidden = true;
       return;
     }
     var matches = DATA.people.filter(function(p){
@@ -253,6 +319,11 @@
         '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' +
         '<span class="pill ' + pillClass + '">' + pillText + '</span>';
       btn.querySelector('.nm').textContent = p.nombre;
+      if (ELIG_SET[p.no]){
+        var tag = document.createElement('span');
+        tag.className = 'tag-el'; tag.textContent = 'elegible';
+        btn.querySelector('.nm').appendChild(tag);
+      }
       btn.querySelector('.doc').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
       btn.addEventListener('click', function(){ openPerson(p.no); });
       els.results.appendChild(btn);
@@ -346,6 +417,7 @@
       current = null;
       renderStat();
       doSearch();
+      fetchElegibles(); // refresca % y pendientes tras guardar
     });
     wrap.appendChild(card);
 
@@ -441,6 +513,7 @@
     loadData().then(function(){
       renderStat();
       doSearch();
+      fetchElegibles();
     }).catch(function(err){
       els.statLine.textContent = 'Error cargando datos';
       els.emptyHint.hidden = false;
