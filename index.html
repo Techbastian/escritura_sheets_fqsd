@@ -50,7 +50,7 @@
   .whoami input{flex:1; min-width:0;}
   .whoami label{font-size:.72rem; color:var(--ink-soft); white-space:nowrap;}
 
-  input[type=text], input[type=number], input[type=url], select{
+  input[type=text], input[type=number], input[type=url], input[type=password], select{
     font:inherit; font-size:.92rem; color:var(--ink); background:var(--card);
     border:1px solid var(--line); border-radius:8px; padding:9px 10px; width:100%;
   }
@@ -158,6 +158,56 @@
   .save-msg.ok{color:var(--accent);}
   .save-msg.err{color:var(--danger);}
 
+  /* ---- Seguimiento de llamadas ---- */
+  .whoami select{flex:1; min-width:0;}
+  .tabs{display:flex; gap:18px; margin-top:8px;}
+  .tab{font:inherit; font-size:.86rem; font-weight:600; color:var(--ink-soft); background:none; border:none; border-bottom:2px solid transparent; padding:6px 0; cursor:pointer;}
+  .tab[aria-pressed="true"]{color:var(--accent); border-bottom-color:var(--accent);}
+  .chips-lbl{font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-top:12px;}
+  .chips-lbl + .chips{margin-top:5px;}
+  .pill.r-ok{background:var(--accent-soft); color:var(--accent);}
+  .pill.r-warn{background:var(--warn-soft); color:var(--warn);}
+  .pill.r-bad{background:var(--danger-soft); color:var(--danger);}
+  .pill.r-mute{background:var(--paper); color:var(--ink-soft); box-shadow:inset 0 0 0 1px var(--line);}
+  .pill.r-none{background:transparent; color:var(--ink-soft); box-shadow:inset 0 0 0 1px var(--line);}
+  .seg{margin-top:12px; padding:12px; border-radius:9px; border:1px solid var(--line);}
+  .seg h3{font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
+  .seg .now{display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; font-size:.84rem;}
+  .seg .now .k{color:var(--ink-soft);}
+  .seg .obs{font-size:.8rem; line-height:1.45; white-space:pre-wrap; background:var(--paper); border-radius:7px; padding:8px 10px; max-height:150px; overflow:auto; margin:10px 0 0;}
+  .seg .grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;}
+  .seg .grid .full{grid-column:1 / -1;}
+  .seg textarea{width:100%; min-height:64px; font:inherit; font-size:.88rem; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:9px 10px; resize:vertical;}
+  .seg input[type=date]{font:inherit; font-size:.92rem; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; padding:8px 10px; width:100%;}
+  .seg .act{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px;}
+  @media (max-width:520px){ .seg .grid{grid-template-columns:1fr;} }
+
+  .board-kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; margin-top:16px;}
+  .kpi{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px;}
+  .kpi b{display:block; font-family:'Manrope',system-ui,sans-serif; font-size:1.55rem; font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums;}
+  .kpi span{font-size:.74rem; color:var(--ink-soft);}
+  .kpi.main b{color:var(--accent);}
+  .board-sec{margin-top:22px;}
+  .board-sec h2{font-size:1rem; font-weight:800;}
+  .board-sec .stat{display:block; margin-top:2px;}
+  .tbl-wrap{overflow-x:auto; margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:10px;}
+  table.board{border-collapse:collapse; width:100%; font-size:.82rem; font-variant-numeric:tabular-nums;}
+  table.board th, table.board td{padding:8px 10px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap;}
+  table.board th{font-size:.66rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600;}
+  table.board th:first-child, table.board td:first-child{text-align:left;}
+  table.board tbody tr{cursor:pointer;}
+  table.board tbody tr:hover td{background:var(--accent-soft);}
+  table.board tfoot td{font-weight:600; border-bottom:none;}
+  .stack{display:flex; height:8px; width:110px; border-radius:99px; overflow:hidden; background:var(--line);}
+  .stack i{display:block; height:100%;}
+  .legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:.74rem; color:var(--ink-soft); margin-top:8px;}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px;}
+  .agenda{margin-top:10px; display:flex; flex-direction:column; gap:6px;}
+  .assign{margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px;}
+  .assign table{margin-top:8px;}
+  .assign .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+  .assign input{max-width:240px;}
+
   footer.note{
     margin-top:28px; padding-top:14px; border-top:1px solid var(--line);
     font-size:.74rem; color:var(--ink-soft); line-height:1.5;
@@ -171,10 +221,20 @@
     <span class="stat" id="statLine">cargando…</span>
   </div>
   <div class="whoami">
-    <label for="who">Tu nombre</label>
-    <input type="text" id="who" placeholder="Quién está llenando esto" autocomplete="off">
+    <label for="who">Soy</label>
+    <select id="who">
+      <option value="">— elige tu nombre —</option>
+      <option>silvia</option><option>Beto</option><option>Lina</option><option>Marcela</option><option>Ana / Paola</option>
+      <option value="Coordinación">Coordinación</option>
+    </select>
   </div>
+  <nav class="tabs" aria-label="Vistas">
+    <button type="button" class="tab" data-tab="list" aria-pressed="true">Talentos</button>
+    <button type="button" class="tab" data-tab="board" aria-pressed="false">Tablero de llamadas</button>
+  </nav>
 </header>
+
+<div id="boardView" hidden></div>
 
 <div id="searchView">
   <div class="search-wrap">
@@ -185,12 +245,18 @@
   <section id="eligSection">
     <div class="elig-head">
       <h2>Talentos elegibles <span class="mono" id="eligCount"></span></h2>
-      <span class="stat">Más datos pendientes primero · en vivo del Sheet</span>
+      <span class="stat">Por llamar primero · en vivo del Sheet</span>
     </div>
+    <div class="chips-lbl">Encargado</div>
+    <div class="chips" role="group" aria-label="Encargado" id="scopeChips"></div>
+    <div class="chips-lbl">Estado</div>
     <div class="chips" role="group" aria-label="Filtro">
       <button type="button" class="chip" data-filter="all" aria-pressed="true">Todos</button>
-      <button type="button" class="chip" data-filter="docs" aria-pressed="false">Con documentos pendientes</button>
+      <button type="button" class="chip" data-filter="sinllamar" aria-pressed="false">Sin llamar</button>
+      <button type="button" class="chip" data-filter="volver" aria-pressed="false">Volver a llamar</button>
+      <button type="button" class="chip" data-filter="nocontesta" aria-pressed="false">No contestó</button>
       <button type="button" class="chip" data-filter="data" aria-pressed="false">Con datos pendientes</button>
+      <button type="button" class="chip" data-filter="docs" aria-pressed="false">Con documentos pendientes</button>
     </div>
     <div class="results" id="eligList"><p class="empty-hint">Cargando elegibles…</p></div>
   </section>
@@ -199,6 +265,7 @@
 <div id="personView" hidden></div>
 
 <footer class="note">
+  Cada talento elegible tiene un encargado (columna G del Sheet). Al registrar una llamada se escribe el resultado en "Resultado de seguimiento" y se agrega una línea con fecha y autor en "Observaciones"; un solo intento sin respuesta cuenta como "No contestó". El tablero se actualiza solo cada minuto.<br><br>
   El formulario muestra, por secciones, todos los datos que siguen vacíos en el Sheet (los links de soportes no se piden aquí). Los documentos obligatorios que se recuerdan son autorización de datos, documento de identidad, recibo de servicios y certificado de formación técnica (no se piden Sisbén ni RUAF). Al abrir a una persona se consulta el Sheet en vivo: solo aparecen los campos vacíos, y lo que guardes queda escrito de inmediato en PARTICIPANTES.
 </footer>
 
@@ -238,6 +305,21 @@
     { flag: '¿Tiene certificado técnica? (1=sí)',   label: 'Certificado de formación técnica' }
   ];
   var FILTER = 'all';
+  var ASSIGN_URL = 'https://n8n.srv1018582.hstgr.cloud/webhook/asignar-seguimiento';
+  var ENCARGADOS = ['silvia', 'Beto', 'Lina', 'Marcela', 'Ana / Paola'];
+  var H_ENC = 'Encargado del seguimiento', H_RES = 'Resultado de seguimiento', H_OBS = 'Observaciones';
+  // Resultados de llamada. Un solo intento sin respuesta ya cuenta como "No contestó".
+  var RES = [
+    { k: 'completo',   label: 'Contestó – completó datos',  cls: 'r-ok',   color: 'var(--accent)',   op: 1,   re: /complet/ },
+    { k: 'volver',     label: 'Contestó – volver a llamar', cls: 'r-warn', color: 'var(--warn)',     op: 1,   re: /volver/ },
+    { k: 'nocontesta', label: 'No contestó',                cls: 'r-mute', color: 'var(--ink-soft)', op: .55, re: /no contest|sin respuesta/ },
+    { k: 'equivocado', label: 'Número equivocado',          cls: 'r-bad',  color: 'var(--danger)',   op: .55, re: /equivocad/ },
+    { k: 'retiro',     label: 'No quiere continuar',        cls: 'r-bad',  color: 'var(--danger)',   op: 1,   re: /no quiere|retir|no contin/ }
+  ];
+  var RANK = { '': 0, volver: 1, nocontesta: 2, otro: 3, completo: 4, equivocado: 5, retiro: 6 };
+  var SCOPE = null;   // null = todos · nombre = encargado · '__none' = sin asignar
+  var TAB = 'list';
+  var LAST_SYNC = null;
 
   var DATA = null, ASK = [];
   var ELIG = null, ELIG_SET = {};
@@ -257,12 +339,42 @@
   };
 
   try {
-    var savedWho = localStorage.getItem('disruptia_who');
-    if (savedWho) els.who.value = savedWho;
+    var savedWho = localStorage.getItem('disruptia_soy');
+    if (savedWho && [].some.call(els.who.options, function(o){ return o.value === savedWho; })) els.who.value = savedWho;
   } catch(e){}
-  els.who.addEventListener('input', function(){
-    try { localStorage.setItem('disruptia_who', els.who.value); } catch(e){}
+  function whoAmI(){ return els.who.value; }
+  function isCaller(){ return ENCARGADOS.indexOf(whoAmI()) !== -1; }
+  SCOPE = isCaller() ? whoAmI() : null;
+  els.who.addEventListener('change', function(){
+    try { localStorage.setItem('disruptia_soy', els.who.value); } catch(e){}
+    SCOPE = isCaller() ? whoAmI() : null;
+    if (ELIG){ renderScopeChips(); renderElegibles(); renderBoard(); }
   });
+
+  function catOf(res){
+    var n = norm(res);
+    if (!n) return null;
+    for (var i = 0; i < RES.length; i++) if (RES[i].re.test(n)) return RES[i];
+    return { k: 'otro', label: String(res), cls: 'r-mute', color: 'var(--ink-soft)', op: .3 };
+  }
+  function segOf(e){ return (e && e.seg) || { encargado: '', resultado: '', observaciones: '' }; }
+  function catKey(e){ var c = catOf(segOf(e).resultado); return c ? c.k : ''; }
+  function fechaVolver(res){
+    var m = String(res || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
+  }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function fmtDia(d){ return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function stamp(){ var d = new Date(); return fmtDia(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function resPill(res){
+    var c = catOf(res);
+    if (!c) return '<span class="pill r-none">sin llamar</span>';
+    var s = document.createElement('span');
+    s.className = 'pill ' + c.cls;
+    s.textContent = c.k === 'otro' ? c.label : c.label.replace(/^Contestó – /, '');
+    return s.outerHTML;
+  }
+  function esc(s){ var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; }
 
   function norm(s){
     return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
@@ -336,7 +448,24 @@
     });
   }
 
-  function fetchElegibles(){
+  function sortElig(){
+    ELIG.sort(function(a, b){
+      var ra = RANK[catKey(a)], rb = RANK[catKey(b)];
+      if (ra !== rb) return ra - rb;
+      if (catKey(a) === 'volver'){
+        var fa = fechaVolver(segOf(a).resultado), fb = fechaVolver(segOf(b).resultado);
+        if (fa && fb && fa - fb) return fa - fb;
+        if (fa && !fb) return -1;
+        if (fb && !fa) return 1;
+      }
+      return b.stat.pend.length - a.stat.pend.length || a.no - b.no;
+    });
+  }
+
+  var loadingElig = false;
+  function fetchElegibles(silent){
+    if (loadingElig) return Promise.resolve();
+    loadingElig = true;
     return fetch(LIST_URL, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
       .then(function(r){ if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
       .then(function(d){
@@ -344,29 +473,63 @@
         ELIG = (d.participantes || []).map(function(e){
           e.stat = pendingOf(e.v || {});
           e.docs = docsPending(e.d || {}) || [];
+          e.seg = e.seg || { encargado: '', resultado: '', observaciones: '' };
           return e;
-        }).sort(function(a, b){ return b.stat.pend.length - a.stat.pend.length || a.no - b.no; });
+        });
+        sortElig();
         ELIG_SET = {};
         ELIG.forEach(function(e){ ELIG_SET[e.no] = e; });
+        LAST_SYNC = new Date();
         renderStat();
+        renderScopeChips();
         renderElegibles();
+        renderBoard();
         doSearch();
       })
       .catch(function(err){
+        if (silent && ELIG) return; // se conserva lo último cargado
         document.getElementById('eligList').innerHTML =
-          '<p class="empty-hint">No se pudo cargar la lista de elegibles (' + err.message + '). Usa el buscador.</p>';
-      });
+          '<p class="empty-hint">No se pudo cargar la lista de elegibles (' + esc(err.message) + '). Usa el buscador.</p>';
+        document.getElementById('boardView').innerHTML =
+          '<p class="empty-hint">No se pudo cargar el tablero (' + esc(err.message) + ').</p>';
+      })
+      .then(function(){ loadingElig = false; });
   }
 
   function renderStat(){
     if (!ELIG){ els.statLine.textContent = 'cargando…'; return; }
-    var pend = 0, withData = 0, withDocs = 0;
+    var pend = 0, withData = 0, withDocs = 0, called = 0;
     ELIG.forEach(function(e){
       pend += e.stat.pend.length;
       if (e.stat.pend.length) withData++;
       if (e.docs.length) withDocs++;
+      if (catKey(e)) called++;
     });
-    els.statLine.innerHTML = '<b>' + ELIG.length + '</b> elegibles · <b>' + withData + '</b> con datos pendientes (' + pend + ' en total) · <b>' + withDocs + '</b> con documentos pendientes';
+    els.statLine.innerHTML = '<b>' + ELIG.length + '</b> elegibles · <b>' + called + '</b> llamados · <b>' + withData + '</b> con datos pendientes (' + pend + ' en total) · <b>' + withDocs + '</b> con documentos pendientes';
+  }
+
+  function inScope(e){
+    if (SCOPE === null) return true;
+    if (SCOPE === '__none') return ENCARGADOS.indexOf(segOf(e).encargado) === -1;
+    return segOf(e).encargado === SCOPE;
+  }
+
+  function renderScopeChips(){
+    var box = document.getElementById('scopeChips');
+    box.innerHTML = '';
+    var opts = [{ v: null, t: 'Todos' }].concat(ENCARGADOS.map(function(n){
+      return { v: n, t: n + (n === whoAmI() ? ' (yo)' : '') };
+    }));
+    var sinAsig = ELIG ? ELIG.filter(function(e){ return ENCARGADOS.indexOf(segOf(e).encargado) === -1; }).length : 0;
+    if (sinAsig) opts.push({ v: '__none', t: 'Sin asignar (' + sinAsig + ')' });
+    opts.forEach(function(o){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip';
+      b.textContent = o.t;
+      b.setAttribute('aria-pressed', SCOPE === o.v ? 'true' : 'false');
+      b.addEventListener('click', function(){ SCOPE = o.v; renderScopeChips(); renderElegibles(); });
+      box.appendChild(b);
+    });
   }
 
   // ---------- Lista y búsqueda ----------
@@ -390,8 +553,9 @@
     if (e){
       var s = statusBits(e);
       var dp = e.docs && e.docs.length ? '<span class="pill doc">' + e.docs.length + ' doc' + (e.docs.length === 1 ? '' : 's') + '</span>' : '';
-      right = '<span class="meter"><span style="display:flex;gap:4px">' + dp + s.pill + '</span>' + s.bar + '</span>';
-      btn.title = s.tip + (e.docs && e.docs.length ? '\nDocumentos: ' + e.docs.join(', ') : '');
+      right = '<span class="meter"><span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">' + resPill(segOf(e).resultado) + dp + s.pill + '</span>' + s.bar + '</span>';
+      btn.title = s.tip + (e.docs && e.docs.length ? '\nDocumentos: ' + e.docs.join(', ') : '') +
+        (segOf(e).resultado ? '\nÚltima llamada: ' + segOf(e).resultado : '');
     }
     btn.innerHTML = '<span class="who"><span class="nm"></span><span class="doc mono"></span></span>' + right;
     btn.querySelector('.nm').textContent = p.nombre;
@@ -400,7 +564,8 @@
       tag.className = 'tag-el'; tag.textContent = 'elegible';
       btn.querySelector('.nm').appendChild(tag);
     }
-    btn.querySelector('.doc').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—') + (e ? ' · ' + statusBits(e).pct + '%' : '');
+    btn.querySelector('.doc').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—') + (e ? ' · ' + statusBits(e).pct + '%' : '') +
+      (e && SCOPE !== segOf(e).encargado ? ' · ' + (segOf(e).encargado || 'sin encargado') : '');
     btn.addEventListener('click', function(){ openPerson(p.no); });
     return btn;
   }
@@ -409,12 +574,15 @@
     var list = document.getElementById('eligList');
     document.getElementById('eligCount').textContent = '(' + ELIG.length + ')';
     list.innerHTML = '';
-    var shown = ELIG.filter(function(e){
+    var base = ELIG.filter(inScope);
+    var shown = base.filter(function(e){
       if (FILTER === 'docs') return e.docs.length > 0;
       if (FILTER === 'data') return e.stat.pend.length > 0;
+      if (FILTER === 'sinllamar') return catKey(e) === '';
+      if (FILTER === 'volver' || FILTER === 'nocontesta') return catKey(e) === FILTER;
       return true;
     });
-    document.getElementById('eligCount').textContent = '(' + shown.length + (FILTER === 'all' ? '' : ' de ' + ELIG.length) + ')';
+    document.getElementById('eligCount').textContent = '(' + shown.length + (shown.length === ELIG.length ? '' : ' de ' + ELIG.length) + ')';
     shown.forEach(function(e){ list.appendChild(personRow(e, e)); });
     if (!shown.length) list.innerHTML = '<p class="empty-hint">Nadie en este filtro.</p>';
   }
@@ -531,11 +699,95 @@
     return box;
   }
 
+  // ---------- Seguimiento de llamada ----------
+  function segValues(no){
+    var v = LIVE[no] || {}, e = ELIG_SET[no];
+    var s = segOf(e);
+    return {
+      encargado: filled(v[H_ENC]) ? String(v[H_ENC]).trim() : s.encargado,
+      resultado: filled(v[H_RES]) ? String(v[H_RES]).trim() : s.resultado,
+      observaciones: filled(v[H_OBS]) ? String(v[H_OBS]) : (s.observaciones || '')
+    };
+  }
+
+  function segBlock(p, okMsg){
+    var s = segValues(p.no);
+    var box = document.createElement('div');
+    box.className = 'seg';
+    box.id = 'segBox';
+    box.innerHTML =
+      '<h3>Seguimiento de llamada</h3>' +
+      '<div class="now"><span><span class="k">Encargado:</span> <b class="enc"></b></span>' +
+      '<span><span class="k">Último resultado:</span> ' + resPill(s.resultado) + '</span></div>' +
+      (s.observaciones.trim() ? '<div class="obs"></div>' : '') +
+      '<div class="grid">' +
+        '<select aria-label="Resultado de la llamada"><option value="">— resultado de esta llamada —</option>' +
+          RES.map(function(r){ return '<option value="' + r.k + '">' + r.label + '</option>'; }).join('') +
+        '</select>' +
+        '<input type="date" aria-label="Fecha para volver a llamar" hidden>' +
+        '<textarea class="full" placeholder="Observación (opcional): qué dijo, a qué hora prefiere que la llamen, etc."></textarea>' +
+      '</div>' +
+      '<div class="act"><button type="button" class="btn-sec">Registrar llamada</button><span class="sub" aria-live="polite"></span></div>';
+    box.querySelector('.enc').textContent = s.encargado || 'sin asignar';
+    if (s.observaciones.trim()){
+      var obs = box.querySelector('.obs');
+      obs.textContent = s.observaciones.trim();
+      setTimeout(function(){ obs.scrollTop = obs.scrollHeight; }, 0);
+    }
+    var sel = box.querySelector('select'), fecha = box.querySelector('input[type=date]');
+    var msg = box.querySelector('.act .sub');
+    if (okMsg){ msg.textContent = okMsg; msg.style.color = 'var(--accent)'; }
+    sel.addEventListener('change', function(){ fecha.hidden = sel.value !== 'volver'; });
+    box.querySelector('.btn-sec').addEventListener('click', function(){ saveCall(p, box); });
+    return box;
+  }
+
+  function saveCall(p, box){
+    var msg = box.querySelector('.act .sub'), btn = box.querySelector('.btn-sec');
+    var fail = function(t){ msg.textContent = t; msg.style.color = 'var(--danger)'; btn.disabled = false; };
+    var who = whoAmI();
+    if (!who) return fail('Elige arriba quién eres (Soy…) antes de registrar.');
+    var k = box.querySelector('select').value;
+    if (!k) return fail('Elige el resultado de la llamada.');
+    var r = RES.filter(function(x){ return x.k === k; })[0];
+    var f = box.querySelector('input[type=date]').value;
+    var resultado = r.label;
+    if (k === 'volver' && f){ var d = f.split('-'); resultado += ' el ' + d[2] + '/' + d[1] + '/' + d[0]; }
+    var nota = box.querySelector('textarea').value.trim().replace(/\s*\n\s*/g, ' ');
+    btn.disabled = true;
+    msg.textContent = 'Guardando en el Sheet…'; msg.style.color = '';
+    // Se relee la fila justo antes para no pisar observaciones que otra persona haya agregado.
+    fetchLive(p.no).catch(function(){ return null; }).then(function(){
+      var prev = segValues(p.no).observaciones.trim();
+      var line = '[' + stamp() + ' – ' + who + '] ' + resultado + (nota ? ': ' + nota : '');
+      var obs = prev ? prev + '\n' + line : line;
+      var datos = {};
+      datos[HDR[H_RES] || H_RES] = resultado;
+      datos[HDR[H_OBS] || H_OBS] = obs;
+      return fetch(WRITE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+        body: JSON.stringify({ no: p.no, doc: p.doc, actor: who, datos_json: JSON.stringify(datos) })
+      }).then(function(res){
+        if (!res.ok) throw new Error('http ' + res.status);
+        return res.json().catch(function(){ return {}; });
+      }).then(function(res){
+        if (res && (res.ok === false || res.sheet === 'error')) throw new Error('el Sheet no confirmó; quedó marcado para reintento');
+        LIVE[p.no] = Object.assign({}, LIVE[p.no] || {});
+        LIVE[p.no][H_RES] = resultado; LIVE[p.no][H_OBS] = obs;
+        var e = ELIG_SET[p.no];
+        if (e){ e.seg = Object.assign({}, segOf(e), { resultado: resultado, observaciones: obs }); sortElig(); renderStat(); }
+        box.replaceWith(segBlock(p, 'Llamada registrada ✓ ' + stamp().slice(-5)));
+      });
+    }).catch(function(err){ fail('No se pudo registrar (' + (err && err.message || 'error') + '). Intenta de nuevo.'); });
+  }
+
   function openPerson(no){
     var p = DATA.people.find(function(x){ return x.no === no; });
     if (!p) return;
     current = p;
     els.searchView.hidden = true;
+    document.getElementById('boardView').hidden = true;
     els.personView.hidden = false;
     els.personView.innerHTML = '<p class="empty-hint">Consultando el Sheet en vivo…</p>';
     window.scrollTo(0, 0);
@@ -564,14 +816,16 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'back-btn';
-    b.textContent = '← Volver a la lista';
+    b.textContent = TAB === 'board' ? '← Volver al tablero' : '← Volver a la lista';
     b.addEventListener('click', function(){
       els.personView.hidden = true;
-      els.searchView.hidden = false;
       els.personView.innerHTML = '';
       current = null;
+      els.searchView.hidden = TAB !== 'list';
+      document.getElementById('boardView').hidden = TAB !== 'board';
+      if (ELIG){ renderElegibles(); renderBoard(); }
       doSearch();
-      fetchElegibles();
+      fetchElegibles(true);
     });
     return b;
   }
@@ -625,6 +879,7 @@
     card.querySelector('.sub').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
     card.querySelector('.hd').appendChild(backButton());
     card.insertBefore(contactBlock(values), card.querySelector('.pend-box'));
+    card.insertBefore(segBlock(p), card.querySelector('.pend-box'));
     var docVals = values;
     if (docsPending(values) === null && ELIG_SET[p.no]) docVals = ELIG_SET[p.no].d || {};
     card.insertBefore(docsBlock(p, docVals), card.querySelector('.pend-box'));
@@ -752,6 +1007,159 @@
   }
 
   els.q.addEventListener('input', doSearch);
+
+  // ---------- Tablero ----------
+  function countsOf(list){
+    var c = { total: list.length, llamados: 0, sin: 0, datos: 0, docs: 0 };
+    RES.forEach(function(r){ c[r.k] = 0; });
+    c.otro = 0;
+    list.forEach(function(e){
+      var k = catKey(e);
+      if (k){ c.llamados++; c[k]++; } else c.sin++;
+      c.datos += e.stat.pend.length;
+      if (e.docs.length) c.docs++;
+    });
+    return c;
+  }
+
+  function stackBar(c){
+    if (!c.total) return '<span class="stack"></span>';
+    return '<span class="stack" role="img" aria-label="' + c.llamados + ' de ' + c.total + ' llamados">' +
+      RES.map(function(r){
+        return c[r.k] ? '<i style="width:' + (c[r.k] / c.total * 100) + '%;background:' + r.color + ';opacity:' + r.op + '"></i>' : '';
+      }).join('') +
+      (c.otro ? '<i style="width:' + (c.otro / c.total * 100) + '%;background:var(--ink-soft);opacity:.3"></i>' : '') +
+      '</span>';
+  }
+
+  function goScope(v){
+    SCOPE = v; FILTER = 'all';
+    document.querySelectorAll('.chip[data-filter]').forEach(function(c){ c.setAttribute('aria-pressed', c.dataset.filter === 'all' ? 'true' : 'false'); });
+    setTab('list');
+    renderScopeChips(); renderElegibles();
+  }
+
+  function renderBoard(){
+    var view = document.getElementById('boardView');
+    if (!ELIG){ view.innerHTML = '<p class="empty-hint">Cargando tablero…</p>'; return; }
+    var g = countsOf(ELIG);
+    var pct = function(a, b){ return b ? Math.round(a / b * 100) : 0; };
+    var kpi = function(n, t, cls){ return '<div class="kpi' + (cls ? ' ' + cls : '') + '"><b>' + n + '</b><span>' + t + '</span></div>'; };
+    var html = '<div class="board-kpis">' +
+      kpi(g.llamados + '<span style="font-size:.9rem;color:var(--ink-soft);font-weight:600"> / ' + g.total + '</span>', 'llamados (' + pct(g.llamados, g.total) + '%)', 'main') +
+      kpi(g.completo, 'completaron datos') +
+      kpi(g.volver, 'volver a llamar') +
+      kpi(g.nocontesta, 'no contestaron') +
+      kpi(g.equivocado, 'número equivocado') +
+      kpi(g.retiro, 'no quieren continuar') +
+      kpi(g.sin, 'sin llamar') +
+      '</div>';
+
+    // Tabla por encargado
+    var rows = ENCARGADOS.map(function(n){ return { n: n, c: countsOf(ELIG.filter(function(e){ return segOf(e).encargado === n; })) }; });
+    var sinAsig = ELIG.filter(function(e){ return ENCARGADOS.indexOf(segOf(e).encargado) === -1; });
+    if (sinAsig.length) rows.push({ n: '__none', c: countsOf(sinAsig) });
+    html += '<section class="board-sec"><h2>Avance por encargado</h2><span class="stat">Toca una fila para ver su lista.' +
+      (LAST_SYNC ? ' Actualizado ' + pad(LAST_SYNC.getHours()) + ':' + pad(LAST_SYNC.getMinutes()) + ' · se refresca cada minuto.' : '') + '</span>' +
+      '<div class="tbl-wrap"><table class="board"><thead><tr><th>Encargado</th><th>Asig.</th><th>Llamados</th><th>Avance</th>' +
+      '<th>Completó</th><th>Volver</th><th>No contestó</th><th>Equivocado</th><th>No continúa</th><th>Sin llamar</th><th>Datos pend.</th><th>Con docs pend.</th></tr></thead><tbody>' +
+      rows.map(function(r){
+        var c = r.c;
+        return '<tr data-scope="' + esc(r.n) + '"><td><b>' + (r.n === '__none' ? 'Sin asignar' : esc(r.n)) + (r.n === whoAmI() ? ' (yo)' : '') + '</b></td>' +
+          '<td>' + c.total + '</td><td>' + c.llamados + ' <span class="stat">(' + pct(c.llamados, c.total) + '%)</span></td><td>' + stackBar(c) + '</td>' +
+          '<td>' + c.completo + '</td><td>' + c.volver + '</td><td>' + c.nocontesta + '</td><td>' + c.equivocado + '</td><td>' + c.retiro + '</td>' +
+          '<td>' + c.sin + '</td><td>' + c.datos + '</td><td>' + c.docs + '</td></tr>';
+      }).join('') +
+      '</tbody><tfoot><tr><td>Total</td><td>' + g.total + '</td><td>' + g.llamados + ' <span class="stat">(' + pct(g.llamados, g.total) + '%)</span></td><td>' + stackBar(g) + '</td>' +
+      '<td>' + g.completo + '</td><td>' + g.volver + '</td><td>' + g.nocontesta + '</td><td>' + g.equivocado + '</td><td>' + g.retiro + '</td>' +
+      '<td>' + g.sin + '</td><td>' + g.datos + '</td><td>' + g.docs + '</td></tr></tfoot></table></div>' +
+      '<div class="legend">' + RES.map(function(r){ return '<span><i style="background:' + r.color + ';opacity:' + r.op + '"></i>' + r.label + '</span>'; }).join('') +
+      '<span><i style="background:var(--line)"></i>Sin llamar</span></div></section>';
+
+    // Llamadas agendadas
+    var agenda = ELIG.filter(function(e){ return catKey(e) === 'volver' && (SCOPE === null || inScope(e)); });
+    html += '<section class="board-sec"><h2>Volver a llamar <span class="mono stat" style="display:inline">(' + agenda.length + ')</span></h2>' +
+      '<span class="stat">' + (SCOPE && SCOPE !== '__none' ? 'De ' + esc(SCOPE) + ' · ' : '') + 'ordenadas por fecha acordada</span>' +
+      '<div class="agenda" id="agendaList"></div></section>';
+
+    // Asignación
+    html += '<section class="board-sec"><h2>Asignación</h2><div class="assign" id="assignBox"></div></section>';
+
+    view.innerHTML = html;
+    view.querySelectorAll('tbody tr[data-scope]').forEach(function(tr){
+      tr.addEventListener('click', function(){ goScope(tr.dataset.scope); });
+    });
+    var al = view.querySelector('#agendaList');
+    if (!agenda.length) al.innerHTML = '<p class="empty-hint" style="padding:8px 4px;text-align:left">No hay llamadas agendadas.</p>';
+    agenda.forEach(function(e){ al.appendChild(personRow(e, e)); });
+    renderAssign(view.querySelector('#assignBox'), sinAsig);
+  }
+
+  function planAssign(sinAsig){
+    var load = {};
+    ENCARGADOS.forEach(function(n){ load[n] = ELIG.filter(function(e){ return segOf(e).encargado === n; }).length; });
+    var add = {}; ENCARGADOS.forEach(function(n){ add[n] = 0; });
+    var plan = [];
+    sinAsig.slice().sort(function(a, b){ return b.stat.pend.length - a.stat.pend.length || a.no - b.no; }).forEach(function(e){
+      var best = ENCARGADOS.reduce(function(m, n){ return load[n] < load[m] ? n : m; }, ENCARGADOS[0]);
+      load[best]++; add[best]++;
+      plan.push({ no: e.no, encargado: best });
+    });
+    return { plan: plan, load: load, add: add };
+  }
+
+  function renderAssign(box, sinAsig){
+    if (!sinAsig.length){
+      box.innerHTML = '<div class="sub">Los ' + ELIG.length + ' elegibles tienen encargado. Si entra un talento nuevo como elegible, aparecerá aquí para repartirlo. Para reasignar a alguien puntual, cámbialo en la columna G del Sheet.</div>';
+      return;
+    }
+    var pl = planAssign(sinAsig);
+    box.innerHTML = '<div><b>' + sinAsig.length + '</b> elegible' + (sinAsig.length === 1 ? '' : 's') + ' sin encargado. Propuesta equitativa (se asignan a quien tenga menos carga; no cambia a nadie ya asignado):</div>' +
+      '<div class="tbl-wrap"><table class="board"><thead><tr><th>Encargado</th><th>Recibe</th><th>Queda con</th></tr></thead><tbody>' +
+      ENCARGADOS.map(function(n){ return '<tr><td>' + esc(n) + '</td><td>+' + pl.add[n] + '</td><td>' + pl.load[n] + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      '<div class="row"><input type="password" placeholder="Clave de coordinación" autocomplete="off" aria-label="Clave de coordinación">' +
+      '<button type="button" class="btn-sec">Confirmar asignación</button><span class="sub" aria-live="polite"></span></div>';
+    var btn = box.querySelector('.btn-sec'), inp = box.querySelector('input'), msg = box.querySelector('.row .sub');
+    btn.addEventListener('click', function(){
+      if (!inp.value.trim()){ msg.textContent = 'Escribe la clave de coordinación.'; msg.style.color = 'var(--danger)'; return; }
+      btn.disabled = true; msg.textContent = 'Asignando en el Sheet…'; msg.style.color = '';
+      fetch(ASSIGN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOKEN },
+        body: JSON.stringify({ clave: inp.value.trim(), asignaciones: pl.plan })
+      }).then(function(r){
+        return r.json().catch(function(){ return {}; }).then(function(j){
+          if (!r.ok || (j && j.ok === false)) throw new Error(r.status === 500 ? 'clave incorrecta o datos inválidos' : (j && j.message) || ('http ' + r.status));
+          return j;
+        });
+      }).then(function(){
+        pl.plan.forEach(function(a){ var e = ELIG_SET[a.no]; if (e) e.seg = Object.assign({}, segOf(e), { encargado: a.encargado }); });
+        renderScopeChips(); renderElegibles(); renderBoard();
+      }).catch(function(err){
+        msg.textContent = 'No se asignó (' + err.message + ').'; msg.style.color = 'var(--danger)'; btn.disabled = false;
+      });
+    });
+  }
+
+  function setTab(t){
+    TAB = t;
+    document.querySelectorAll('.tab').forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.tab === t ? 'true' : 'false'); });
+    if (current){ els.personView.hidden = true; els.personView.innerHTML = ''; current = null; }
+    els.searchView.hidden = t !== 'list';
+    document.getElementById('boardView').hidden = t !== 'board';
+    if (t === 'board') renderBoard();
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click', function(){ setTab(b.dataset.tab); if (ELIG) fetchElegibles(true); });
+  });
+
+  // Refresco automático: solo cuando no hay una ficha abierta (para no mover lo que se está llenando).
+  setInterval(function(){
+    if (document.hidden || current || !DATA) return;
+    fetchElegibles(true);
+  }, 60000);
 
   function boot(){
     renderStat();
