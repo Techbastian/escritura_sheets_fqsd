@@ -101,6 +101,10 @@
   .contact .k{font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);}
   .contact .v{font-size:.95rem; font-weight:600; color:var(--ink); word-break:break-all; user-select:all;}
   .contact .v.none{font-weight:400; color:var(--ink-soft); user-select:auto;}
+  .contact .perfil{flex-basis:100%; border-top:1px solid var(--line); padding-top:8px; display:flex; flex-direction:column; gap:3px;}
+  .contact .perfil .row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .contact .perfil .v{word-break:normal; user-select:auto;}
+  .contact .perfil .det{font-size:.76rem; color:var(--ink-soft);}
   .docs{margin-top:12px; padding:10px 12px; border-radius:9px; border:1px solid var(--line);}
   .docs.pend{background:var(--warn-soft); border-color:transparent;}
   .docs h3{font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
@@ -383,8 +387,19 @@
   function filled(v){ return v !== undefined && v !== null && String(v).trim() !== ''; }
   function hdrOf(letter){ return nh(DATA.fields[letter].header); }
 
+  // Letra real de cada columna según el orden de la fila leída en vivo (cambia si se insertan columnas en el Sheet).
+  var COLPOS = {};
+  function colLetter(n){
+    var i = COLPOS[n];
+    if (i === undefined) return '';
+    var s = ''; i++;
+    while (i > 0){ var r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1) / 26); }
+    return s;
+  }
   function normRow(row){
     var o = {};
+    var ks = Object.keys(row || {}).filter(function(k){ return k !== 'row_number'; });
+    if (ks.indexOf('No.') !== -1) ks.forEach(function(k, i){ COLPOS[nh(k)] = i; });
     Object.keys(row || {}).forEach(function(k){
       var n = nh(k);
       o[n] = row[k];
@@ -631,6 +646,12 @@
         opt.value = o; opt.textContent = o;
         input.appendChild(opt);
       });
+    } else if (meta.type === 'date'){
+      input = document.createElement('input');
+      input.type = 'date';
+      input.min = '1950-01-01';
+      var lim = new Date(); lim.setFullYear(lim.getFullYear() - 14);
+      input.max = lim.getFullYear() + '-' + pad(lim.getMonth() + 1) + '-' + pad(lim.getDate());
     } else {
       input = document.createElement('input');
       input.type = meta.type === 'number' ? 'number' : 'text';
@@ -639,7 +660,45 @@
     input.id = 'f_' + letter;
     input.dataset.letter = letter;
     wrap.appendChild(input);
+    var real = colLetter(hdrOf(letter));
+    var badge = label.querySelector('.badge');
+    if (real) badge.textContent = real; else badge.remove();
     return wrap;
+  }
+
+  // ---------- Fecha de nacimiento ----------
+  var H_EDAD = 'Edad (Automático)';
+  function edadDesde(iso){
+    var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    var y = +m[1], mo = +m[2], d = +m[3], dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+    var h = new Date();
+    return h.getFullYear() - y - ((h.getMonth() + 1 < mo || (h.getMonth() + 1 === mo && h.getDate() < d)) ? 1 : 0);
+  }
+  function fechaHint(row, values){
+    var inp = row.querySelector('input[type=date]');
+    if (!inp) return;
+    var hint = document.createElement('div');
+    hint.className = 'hint';
+    row.appendChild(hint);
+    var edadSheet = values[H_EDAD];
+    var base = filled(edadSheet) ? 'El Sheet muestra edad ' + edadSheet + ' sin fecha que la respalde: confírmala con la fecha del documento.' : 'Tómala del documento de identidad.';
+    var upd = function(){
+      var e = edadDesde(inp.value);
+      hint.style.color = '';
+      if (!inp.value){ hint.textContent = base; return; }
+      if (e === null || e < 14 || e > 80){ hint.textContent = 'Fecha no válida.'; hint.style.color = 'var(--danger)'; return; }
+      var msg = 'Edad según esta fecha: ' + e + ' años.';
+      if (filled(edadSheet) && Number(edadSheet) !== e){
+        msg += ' No coincide con la edad del Sheet (' + edadSheet + '); revisa la fecha y avisa a coordinación, porque la elegibilidad por edad usa ese valor.';
+        hint.style.color = 'var(--warn)';
+      }
+      hint.textContent = msg;
+    };
+    inp.addEventListener('input', upd);
+    inp.addEventListener('change', upd);
+    upd();
   }
 
   function contactBlock(values){
@@ -655,6 +714,33 @@
     if (!filled(cel)) vs[0].classList.add('none');
     if (!filled(mail)) vs[1].classList.add('none');
     return box;
+  }
+
+  // Perfil TI que el propio talento declaró (inscripción; si dijo "Otro", su cargo o formación previa declarados).
+  function perfilBlock(p){
+    var e = ELIG_SET[p.no];
+    var pf = e && e.perfil;
+    if (!pf) return null;
+    var d = document.createElement('div');
+    d.className = 'perfil';
+    d.innerHTML = '<span class="k">Perfil declarado</span><div class="row"><span class="v"></span></div><div class="det"></div>';
+    var v = d.querySelector('.v'), row = d.querySelector('.row'), det = d.querySelector('.det');
+    var pill = document.createElement('span');
+    if (pf.claro){
+      v.textContent = pf.perfil;
+      pill.className = 'pill r-ok'; pill.textContent = 'perfil claro';
+      det.textContent = 'Fuente: ' + pf.fuente;
+    } else {
+      v.textContent = pf.perfil ? 'Respondió "' + pf.perfil + '"' : 'No respondió';
+      pill.className = 'pill r-warn'; pill.textContent = 'preguntar perfil de nuevo';
+      var ctx = [];
+      if (pf.cual) ctx.push('Escribió: "' + pf.cual + '"');
+      if (pf.cargo && norm(pf.cargo) !== norm(pf.cual)) ctx.push('Cargo más relevante que mencionó: "' + pf.cargo + '"');
+      if (pf.sinConsulta) ctx.push('No se pudo consultar la inscripción; vuelve a abrir la ficha más tarde.');
+      det.textContent = ctx.length ? ctx.join(' · ') : 'Sin información declarada sobre su formación en TI.';
+    }
+    row.appendChild(pill);
+    return d;
   }
 
   function firstName(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
@@ -878,7 +964,9 @@
     card.querySelector('h2').textContent = p.nombre;
     card.querySelector('.sub').textContent = 'No. ' + p.no + ' · CC ' + (p.doc || '—');
     card.querySelector('.hd').appendChild(backButton());
-    card.insertBefore(contactBlock(values), card.querySelector('.pend-box'));
+    var cBox = contactBlock(values), pBox = perfilBlock(p);
+    if (pBox) cBox.appendChild(pBox);
+    card.insertBefore(cBox, card.querySelector('.pend-box'));
     card.insertBefore(segBlock(p), card.querySelector('.pend-box'));
     var docVals = values;
     if (docsPending(values) === null && ELIG_SET[p.no]) docVals = ELIG_SET[p.no].d || {};
@@ -909,6 +997,7 @@
         var row = fieldRow(l, DATA.fields[l]);
         var cur = values[hdrOf(l)];
         if (filled(cur)){ row.classList.add('saved'); row.querySelector('[data-letter]').value = cur; }
+        else if (DATA.fields[l].type === 'date') fechaHint(row, values);
         fs.appendChild(row);
       });
       form.appendChild(fs);
@@ -939,16 +1028,25 @@
   function submitForm(p, form){
     var msg = document.getElementById('saveMsg');
     var btn = form.querySelector('button.primary');
-    var datos = {}, normSaved = {}, missingHdr = [], any = false;
+    var datos = {}, normSaved = {}, missingHdr = [], badDate = [], any = false;
     form.querySelectorAll('[data-row]:not([hidden]) [data-letter]').forEach(function(inp){
       var v = inp.value.trim();
       if (!v) return;
+      if (inp.type === 'date' && !inp.closest('.saved')){
+        var e = edadDesde(v);
+        if (e === null || e < 14 || e > 80){ badDate.push(DATA.fields[inp.dataset.letter].label); return; }
+      }
       var l = inp.dataset.letter, n = hdrOf(l), real = HDR[n];
       if (!real){ missingHdr.push(DATA.fields[l].label); return; }
       datos[real] = v;
       normSaved[n] = v;
       any = true;
     });
+    if (badDate.length){
+      msg.textContent = 'Revisa la fecha: ' + badDate.join(', ') + ' (debe dar una edad entre 14 y 80 años).';
+      msg.className = 'save-msg err';
+      return;
+    }
     if (missingHdr.length){
       msg.textContent = 'No se encontró en el Sheet la columna de: ' + missingHdr.join(', ') + '. Avisa a Sebastián.';
       msg.className = 'save-msg err';
