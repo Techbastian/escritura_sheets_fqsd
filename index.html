@@ -242,7 +242,7 @@
 
 <div id="searchView">
   <div class="search-wrap">
-    <input type="text" id="q" placeholder="Buscar por nombre o número de documento…" autocomplete="off">
+    <input type="text" id="q" placeholder="Buscar elegibles por nombre, documento o No.…" autocomplete="off">
   </div>
   <div class="results" id="results"></div>
   <p class="empty-hint" id="emptyHint" hidden></p>
@@ -504,7 +504,7 @@
       .catch(function(err){
         if (silent && ELIG) return; // se conserva lo último cargado
         document.getElementById('eligList').innerHTML =
-          '<p class="empty-hint">No se pudo cargar la lista de elegibles (' + esc(err.message) + '). Usa el buscador.</p>';
+          '<p class="empty-hint">No se pudo cargar la lista de elegibles (' + esc(err.message) + '). Recarga la página en un momento.</p>';
         document.getElementById('boardView').innerHTML =
           '<p class="empty-hint">No se pudo cargar el tablero (' + esc(err.message) + ').</p>';
       })
@@ -616,12 +616,16 @@
     els.results.innerHTML = '';
     document.getElementById('eligSection').hidden = !!term;
     if (!term){ els.emptyHint.hidden = true; return; }
-    var matches = DATA.people.filter(function(p){
-      return norm(p.nombre).indexOf(term) !== -1 || (p.doc && p.doc.indexOf(term) !== -1);
+    if (!ELIG){ els.emptyHint.hidden = false; els.emptyHint.textContent = 'Cargando la lista de elegibles…'; return; }
+    // Solo se busca entre los elegibles (regla del Dashboard: 4 criterios GOYN + perfil TI válido).
+    var tdoc = term.replace(/[^0-9a-z]/g, '');
+    var matches = ELIG.filter(function(e){
+      var d = String(e.doc || '').replace(/[^0-9A-Za-z]/g, '');
+      return norm(e.nombre).indexOf(term) !== -1 || (tdoc && d.indexOf(tdoc) !== -1) || String(e.no) === term;
     }).slice(0, 12);
     els.emptyHint.hidden = matches.length > 0;
-    if (!matches.length) els.emptyHint.textContent = 'Sin resultados para "' + els.q.value + '".';
-    matches.forEach(function(p){ els.results.appendChild(personRow(p, ELIG_SET[p.no])); });
+    if (!matches.length) els.emptyHint.textContent = 'Ningún elegible coincide con "' + els.q.value + '". La herramienta solo muestra a quienes cumplen todos los criterios.';
+    matches.forEach(function(e){ els.results.appendChild(personRow(e, e)); });
   }
 
   // ---------- Ficha de la persona ----------
@@ -869,8 +873,10 @@
   }
 
   function openPerson(no){
-    var p = DATA.people.find(function(x){ return x.no === no; });
-    if (!p) return;
+    // La ficha se arma desde la lista en vivo de elegibles (incluye registros nuevos que no están en data.json).
+    var e0 = ELIG_SET[no];
+    if (!e0) return;
+    var p = { no: e0.no, doc: String(e0.doc || ''), nombre: e0.nombre || '' };
     current = p;
     els.searchView.hidden = true;
     document.getElementById('boardView').hidden = true;
